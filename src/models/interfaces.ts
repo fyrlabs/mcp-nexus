@@ -10,7 +10,7 @@ import type {
   ToolStats,
 } from "./types.js";
 
-export interface SearchQueryOptions extends SearchOptions {}
+export type SearchQueryOptions = SearchOptions;
 
 export interface CapabilityIndex {
   indexServer(serverId: string): Promise<number>;

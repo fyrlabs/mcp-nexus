@@ -1,12 +1,5 @@
 const SECRET_KEY_PATTERN = /(token|secret|password|passwd|api[_-]?key|authorization|credential)/i;
 
-function redactValue(key: string, value: unknown): unknown {
-  if (typeof value === "string") {
-    return SECRET_KEY_PATTERN.test(key) ? "[redacted]" : value;
-  }
-  return redactUnknown(value);
-}
-
 export function redactUnknown(value: unknown, depth = 0): unknown {
   if (depth > 6 || value === null || typeof value !== "object") {
     return value;

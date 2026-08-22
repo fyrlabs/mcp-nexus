@@ -36,8 +36,8 @@ export function resolveProjectRoot(explicit?: string): string {
   return process.cwd();
 }
 
-export function dataDirFor(projectRoot: string, hasProjectConfig: boolean): string {
-  if (hasProjectConfig) {
+export function dataDirFor(projectRoot: string, scope: "project" | "global"): string {
+  if (scope === "project") {
     return join(projectRoot, DATA_DIR_NAME);
   }
   return join(xdg("XDG_DATA_HOME", ".local/share"), "mcp-nexus");

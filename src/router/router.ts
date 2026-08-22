@@ -1,8 +1,7 @@
 import type { CapabilityIndex } from "../index/capability-index.js";
 import type { LifecycleManager } from "../lifecycle/lifecycle-manager.js";
 import type { PolicyEngine } from "./policies.js";
-import type { Ranker } from "./ranker.js";
-import { neutralUsageSignals, type UsageSignals } from "./ranker.js";
+import type { Ranker, UsageSignals } from "./ranker.js";
 import type { Predictor } from "./predictor.js";
 import type { AnalyticsEngine } from "../analytics/analytics-engine.js";
 import type {
@@ -90,19 +89,22 @@ export class Router {
   }
 
   async describe(capabilityIds: string[], context: RoutingContext = {}): Promise<{ found: Capability[]; missing: string[] }> {
-    let { found, missing } = this.index.describe(capabilityIds);
-    if (missing.length > 0 && (this.options.autoIndexMissing ?? true)) {
-      const candidateServerIds = [...new Set(missing.map(serverPartOf))];
+    const initial = this.index.describe(capabilityIds);
+    let result = initial;
+    if (initial.missing.length > 0 && (this.options.autoIndexMissing ?? true)) {
+      const candidateServerIds = [...new Set(initial.missing.map(serverPartOf))];
       try {
         await this.index.ensureIndexed({ serverIds: candidateServerIds });
-        const retry = this.index.describe(missing);
-        found = [...found, ...retry.found];
-        missing.splice(0, missing.length, ...retry.missing);
+        const retry = this.index.describe(initial.missing);
+        result = {
+          found: [...initial.found, ...retry.found],
+          missing: retry.missing,
+        };
       } catch (error) {
         this.logger.warn("lazy indexing during describe failed", { error: String(error) });
       }
     }
-    for (const capability of found) {
+    for (const capability of result.found) {
       this.analytics.record({
         type: "capability.described",
         sessionId: context.sessionId,
@@ -110,7 +112,7 @@ export class Router {
         capabilityId: capability.capabilityId,
       });
     }
-    return { found, missing };
+    return result;
   }
 
   async execute(capabilityId: string, args: unknown, context: ExecutionContext = {}): Promise<unknown> {

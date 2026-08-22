@@ -1,4 +1,4 @@
-import type { ResolvedConfig } from "../config/loader.js";
+import type { ResolvedConfig, ResolvedServer } from "../config/loader.js";
 import { contentHash } from "../utils/hash.js";
 import type { CapabilityRepository } from "../storage/capability-repository.js";
 import type { ServerRepository } from "../storage/server-repository.js";
@@ -15,7 +15,7 @@ export class Registry {
     return this.config.servers[serverId];
   }
 
-  allDefinitions(): MCPServerDefinition[] {
+  allDefinitions(): ResolvedServer[] {
     return Object.values(this.config.servers);
   }
 

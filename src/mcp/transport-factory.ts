@@ -22,7 +22,7 @@ export class StdioTransportFactory implements TransportFactory {
       );
     }
     const env: Record<string, string> = {};
-    for (const [key, value] of Object.entries(this.defaultEnv)) {
+    for (const key of Object.keys(this.defaultEnv)) {
       if (this.parentEnv[key] !== undefined) env[key] = this.parentEnv[key] as string;
     }
     for (const [key, value] of Object.entries(definition.env)) {

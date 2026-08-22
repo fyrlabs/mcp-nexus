@@ -233,7 +233,7 @@ export function loadConfig(options: LoadConfigOptions = {}): ResolvedConfig {
 
   const hasProject = projectPath !== null;
   const projectRoot = hasProject ? resolvePath(projectPath, "..") : cwd;
-  const dataDir = dataDirFor(projectRoot, hasProject);
+  const dataDir = dataDirFor(projectRoot, hasProject ? "project" : "global");
 
   return {
     version: 1,
