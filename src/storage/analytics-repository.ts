@@ -60,7 +60,7 @@ export class AnalyticsRepository {
   ): void {
     const existing = this.getRoutingStats([capabilityId]).get(capabilityId);
     if (!existing) {
-      const latency = outcome.latencyMs;
+      const latency = outcome.latencyMs ?? 0;
       this.db.run(
         `INSERT INTO routing_stats (
           capability_id, usage_count, success_count, failure_count, success_rate, avg_latency_ms, last_used_at, updated_at

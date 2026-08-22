@@ -7,6 +7,7 @@ import type { PolicyEngine } from "../router/policies.js";
 import type { Ranker } from "../router/ranker.js";
 import type { Predictor } from "../router/predictor.js";
 import type { Router } from "../router/router.js";
+import type { ExecutionContext } from "../models/types.js";
 
 export interface NexusRuntime {
   readonly config: ResolvedConfig;
@@ -20,5 +21,10 @@ export interface NexusRuntime {
   readonly router: Router;
   initialize(): Promise<void>;
   startIndexing(options?: { force?: boolean; serverIds?: string[] }): Promise<IndexResult[]>;
+  execute(
+    capabilityId: string,
+    args?: Record<string, unknown>,
+    context?: ExecutionContext,
+  ): Promise<unknown>;
   shutdown(): Promise<void>;
 }

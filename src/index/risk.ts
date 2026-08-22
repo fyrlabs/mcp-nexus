@@ -1,12 +1,12 @@
 import type { RiskLevel } from "../models/types.js";
 
 const DESTRUCTIVE_PATTERN =
-  /\b(delete|destroy|drop|purge|remove|terminate|kill|revoke|wipe|truncate|uninstall|decommission)\b/i;
+  /\b(delete|deletes|deleted|deleting|destroy|destroys|destroyed|destroying|drop|drops|dropped|dropping|purge|purges|purged|purging|remove|removes|removed|removing|terminate|terminates|terminated|terminating|kill|kills|killed|killing|revoke|revokes|revoked|revoking|wipe|wipes|wiping|truncat\w+|uninstall|decommission)\b/i;
 const WRITE_PATTERN =
-  /\b(create|update|write|set|add|insert|post|put|patch|rename|move|send|edit|deploy|publish|merge|close|assign|invite|upload)\b/i;
+  /\b(create|creates|created|creating|update|updates|updated|updating|write|writes|writing|set|sets|setting|add|adds|added|adding|insert|inserts|inserted|inserting|post|posts|posted|posting|put|puts|patch|patches|patched|patching|rename|renames|renamed|renaming|move|moves|moved|moving|send|sends|sent|sending|edit|edits|edited|editing|deploy|deploys|deployed|deploying|publish|publishes|published|publishing|merge|merges|merged|merging|close|closes|closed|closing|assign|assigns|assigned|assigning|invite|invites|invited|inviting|upload|uploads|uploaded|uploading)\b/i;
 
 export function classifyRisk(toolName: string, description = ""): RiskLevel {
-  const text = `${toolName} ${description}`;
+  const text = `${toolName} ${description}`.replace(/[_-]+/g, " ");
   if (DESTRUCTIVE_PATTERN.test(text)) return "destructive";
   if (WRITE_PATTERN.test(text)) return "write";
   return "read";

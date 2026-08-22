@@ -55,7 +55,7 @@ export const analyticsSchema = z.object({
 });
 
 export const nexusConfigSchema = z.object({
-  version: z.literal(1),
+  version: z.literal(1).default(1),
   servers: z.record(z.string(), serverDefinitionSchema).default({}),
   routing: routingSchema.prefault({}),
   lifecycle: lifecycleSchema.prefault({}),

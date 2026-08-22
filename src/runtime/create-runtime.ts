@@ -5,7 +5,7 @@ import { CapabilityRepository } from "../storage/capability-repository.js";
 import { ServerRepository } from "../storage/server-repository.js";
 import { AnalyticsRepository } from "../storage/analytics-repository.js";
 import { Registry } from "../registry/registry.js";
-import { StdioTransportFactory } from "../mcp/transport-factory.js";
+import { StdioTransportFactory, type TransportFactory } from "../mcp/transport-factory.js";
 import { LifecycleManager, type LifecycleTimeouts } from "../lifecycle/lifecycle-manager.js";
 import { CapabilityIndex } from "../index/capability-index.js";
 import { AnalyticsEngine } from "../analytics/analytics-engine.js";
@@ -25,6 +25,7 @@ export interface RuntimeOptions {
   cwd?: string;
   logger?: Logger;
   embeddingProvider?: EmbeddingProvider;
+  transportFactory?: TransportFactory;
 }
 
 export function createRuntime(options: RuntimeOptions = {}): NexusRuntime {
@@ -65,7 +66,7 @@ export function createRuntime(options: RuntimeOptions = {}): NexusRuntime {
 
   const lifecycle = new LifecycleManager(
     catalog,
-    new StdioTransportFactory(),
+    options.transportFactory ?? new StdioTransportFactory(),
     packageVersion(),
     timeouts,
     logger.child("lifecycle"),
@@ -125,6 +126,7 @@ export function createRuntime(options: RuntimeOptions = {}): NexusRuntime {
       }
     },
     startIndexing: (startOptions = {}) => capabilityIndex.ensureIndexed(startOptions),
+    execute: (capabilityId, args, context) => router.execute(capabilityId, args ?? {}, context ?? {}),
     shutdown: async () => {
       lifecycle.stopSweeper();
       await lifecycle.dispose();

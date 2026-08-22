@@ -138,6 +138,11 @@ export class LifecycleManager {
     return this.running.get(serverId)?.status ?? "not_started";
   }
 
+  isRunning(serverId: string): boolean {
+    const managed = this.running.get(serverId);
+    return managed !== undefined && managed.client.connected;
+  }
+
   statuses(): ManagedStatus[] {
     return [...this.running.values()].map((managed) => ({
       serverId: managed.definition.id,

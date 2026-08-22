@@ -33,12 +33,15 @@ export class ServerRepository {
       return;
     }
     this.db.run(
-      `UPDATE servers SET name = ?, config_hash = ?, updated_at = ? WHERE id = ?`,
+      `UPDATE servers SET name = ?, updated_at = ? WHERE id = ?`,
       name,
-      configHash,
       now,
       id,
     );
+  }
+
+  setConfigHash(id: string, configHash: string, now = Date.now()): void {
+    this.db.run(`UPDATE servers SET config_hash = ?, updated_at = ? WHERE id = ?`, configHash, now, id);
   }
 
   setStatus(id: string, status: string, now = Date.now()): void {

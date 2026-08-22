@@ -71,6 +71,10 @@ export class CapabilityIndex {
     const tools = await this.lifecycle.listTools(serverId);
     const capabilities = buildCapabilities(serverId, tools, this.now());
     this.capabilitiesRepo.replaceServerCapabilities(serverId, capabilities, startedAt);
+    const definition = this.registryCatalog.allDefinitions().find((entry) => entry.id === serverId);
+    if (definition) {
+      this.serversRepo.setConfigHash(serverId, configHashOf(definition), startedAt);
+    }
     await this.reloadFromStore();
     const durationMs = this.now() - startedAt;
     this.events.onEvent?.({ type: "capability.indexed", serverId });

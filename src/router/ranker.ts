@@ -60,8 +60,9 @@ export class Ranker {
     for (const key of WEIGHT_KEYS) {
       sum += this.weights[key] * signals[key];
     }
-    const totalWeight = WEIGHT_KEYS.reduce((acc, key) => acc + this.weights[key], 0);
-    return totalWeight > 0 ? sum / totalWeight : 0;
+    const base =
+      this.weights.exact + this.weights.lexical + this.weights.semantic;
+    return base > 0 ? sum / base : 0;
   }
 }
 
