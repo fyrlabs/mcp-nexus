@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "servers": {
+    "github": {
+      "name": "GitHub",
+      "description": "Repositories, pull requests, issues, and code review",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      },
+      "tags": ["github", "code-review", "development"]
+    },
+    "jira": {
+      "name": "Jira",
+      "description": "Issue tracking, sprints, and tickets",
+      "command": "npx",
+      "args": ["-y", "@scope/jira-mcp"],
+      "env": {
+        "JIRA_URL": "${JIRA_URL:-https://your-company.atlassian.net}",
+        "JIRA_TOKEN": "${JIRA_TOKEN}"
+      },
+      "tags": ["jira", "project-management", "tickets"],
+      "enabled": true
+    },
+    "filesystem": {
+      "name": "Filesystem",
+      "description": "Local file access for this workspace",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+      "tags": ["files"],
+      "alwaysOn": false
+    }
+  },
+  "routing": {
+    "strategy": "adaptive",
+    "semanticSearch": false,
+    "prefetch": true,
+    "limit": 8,
+    "aliases": {},
+    "weights": {},
+    "pinnedCapabilities": [],
+    "disabledCapabilities": [],
+    "disabledServers": []
+  },
+  "lifecycle": {
+    "startupTimeoutMs": 20000,
+    "callTimeoutMs": 120000,
+    "indexTimeoutMs": 30000,
+    "hotIdleTimeoutMs": 900000,
+    "warmIdleTimeoutMs": 300000,
+    "coldIdleTimeoutMs": 60000
+  },
+  "analytics": {
+    "enabled": true,
+    "retentionDays": 90
+  }
+}
