@@ -60,6 +60,7 @@ export interface RoutingContext {
   sessionId?: string;
   projectScope?: string;
   taskHint?: string;
+  limit?: number;
   now?: number;
 }
 

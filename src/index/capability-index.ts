@@ -104,6 +104,11 @@ export class CapabilityIndex {
     await this.ensureIndexed({ force: true });
   }
 
+  async hydrate(): Promise<void> {
+    if (this.capabilitiesRepo.count() === 0) return;
+    await this.reloadFromStore();
+  }
+
   async search(query: string, options: SearchOptions = {}): Promise<CapabilityMatch[]> {
     const normalizedQuery = normalizeQuery(query);
     if (!normalizedQuery) return [];
