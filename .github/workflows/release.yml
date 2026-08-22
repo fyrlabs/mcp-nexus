@@ -1,0 +1,85 @@
+name: Release
+
+# Publishing happens when a GitHub release is published, not when a tag is
+# pushed. A tag is a cheap, reversible marker: cut as many as are useful, push
+# them, and publish only the ones that earn a release page.
+#
+# `workflow_dispatch` covers the case where a release exists but its run failed,
+# which is otherwise awkward to retry.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Tag to publish from
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      # A release event checks out the tag it was created from; a manual run has
+      # to be told which tag, or it would publish whatever main happens to hold.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      - run: npm run lint && npm run typecheck && npm test
+      - run: npm run build
+      # The manifest is part of the tag, but dist/ is built here, so this is the
+      # first place where "package.json declares it" and "the tarball contains
+      # it" can disagree. Historical tags predate src/index.ts while declaring
+      # exports that point into dist/, so this gate is what keeps those releases
+      # from shipping a package whose library entry points do not exist. A green
+      # CI run proves the tests passed; only this proves the artifact matches
+      # its manifest.
+      - name: Verify declared entry points exist in the build
+        run: |
+          set -euo pipefail
+          node --input-type=module -e "
+            import { existsSync } from 'node:fs';
+            const pkg = (await import('./package.json', { with: { type: 'json' } })).default;
+            const targets = new Set();
+            const add = (value) => { if (typeof value === 'string') targets.add(value); };
+            add(pkg.main); add(pkg.types);
+            Object.values(pkg.bin ?? {}).forEach(add);
+            for (const entry of Object.values(pkg.exports ?? {})) {
+              if (typeof entry === 'string') add(entry);
+              else if (entry) Object.values(entry).forEach(add);
+            }
+            const missing = [...targets].filter((target) => !existsSync(target));
+            if (missing.length > 0) {
+              console.error('package.json declares files the build does not produce:', missing.join(', '));
+              console.error('Refusing to publish an artifact whose entry points are missing.');
+              process.exit(1);
+            }
+            console.log('All declared entry points present:', [...targets].join(', '));
+          "
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "::warning::NPM_TOKEN secret is not configured on this repository."
+            echo "::warning::Add it (an automation token with publish rights for @fyrlabs) to activate automatic publishing."
+            exit 1
+          fi
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "$name@$version is already published, skipping"
+            exit 0
+          fi
+          echo "publishing $name@$version"
+          npm publish --access public --provenance
