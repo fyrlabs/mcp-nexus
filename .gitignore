@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+.mcp-nexus/
+*.log
+.DS_Store
+.env
+project-mcp.json
+!examples/project-mcp.json
