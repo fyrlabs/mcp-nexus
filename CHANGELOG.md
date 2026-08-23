@@ -5,6 +5,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 follows [Semantic Versioning](https://semver.org/) — pre-1.0, so breaking changes may land in
 minor releases.
 
+## [0.3.1] - 2026-08-23
+
+### Fixed
+
+- `mcp-nexus serve` now writes its structured logs to `<data-dir>/logs/runtime.log` (teed to
+  stderr; file-write failures degrade to stderr-only). Previously nothing wrote the file and
+  `mcp-nexus logs` always reported "No log file".
+
+### Added
+
+- End-to-end CLI test suite: every command (init, add, remove, doctor pass/fail, index, list,
+  search --explain, status, analytics, config, logs, import) driven against a real spawned
+  mini MCP stdio server with isolated HOME/XDG directories.
+
 ## [0.3.0] - 2026-08-22
 
 ### Added
