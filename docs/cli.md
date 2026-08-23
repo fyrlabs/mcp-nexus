@@ -48,6 +48,19 @@ mcp-nexus add jira -d "Issue tracking" -t tickets \
 |---|---|
 | `index [-f|--force] [-s <id>]` | Start servers as needed and (re)index capabilities. Incremental by default; `--force` rebuilds everything. |
 | `search <query…> [-l n] [-s <id>] [--explain]` | Run the same search the agent control plane uses. `--explain` prints per-signal scores and reasons. |
+| `exec <capabilityId> [-a '<json>'] [-s <id>] [--json]` | Execute a capability once from the CLI — the same routing path the agent control plane uses. Starts the owning server on demand, records analytics, and prints text content blocks. |
+
+```bash
+mcp-nexus exec github.pull_requests.list --args '{"state":"open"}' --json
+```
+
+## Benchmark
+
+```bash
+npm run bench [-- --servers 50 --tools 40 --queries 500]
+```
+
+Builds a synthetic ecosystem, measures real BM25 build/search latency against the spec targets, and estimates the context payload of all downstream tool schemas versus the 4-tool control plane.
 
 ## Analytics (local only)
 

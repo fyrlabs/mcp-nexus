@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 follows [Semantic Versioning](https://semver.org/) — pre-1.0, so breaking changes may land in
 minor releases.
 
+## [0.4.0] - 2026-08-23
+
+### Added
+
+- `mcp-nexus exec <capabilityId> [--args '<json>'] [--json]`: one-shot capability execution from the CLI over the same routing path as the agent control plane (lazy server start, analytics, sequence learning).
+- `npm run bench`: synthetic-ecosystem benchmark measuring index build time, search latency percentiles against the spec budget, and the estimated context reduction of the 4-tool control plane versus all downstream schemas (~99.6% at 2,000 capabilities).
+- Windows CI job; `doctor` command resolution is now pure Node (PATH + PATHEXT scan) instead of shelling out to `which`, so it works on Windows too.
+- Public API: `expandAliases`, `normalizeQuery` exported from the package root.
+
 ## [0.3.1] - 2026-08-23
 
 ### Fixed

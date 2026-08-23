@@ -1,6 +1,6 @@
 {
   "name": "@fyrlabs/mcp-nexus",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Local-first intelligent MCP router: one endpoint, many MCP servers, capabilities discovered on demand.",
   "license": "Apache-2.0",
   "type": "module",
@@ -31,6 +31,7 @@
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "bench": "npm run build --silent && node scripts/benchmark.mjs",
     "lint": "eslint src",
     "prepublishOnly": "npm run typecheck && npm run lint && npm run test && npm run build"
   },

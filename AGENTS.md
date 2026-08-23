@@ -19,9 +19,10 @@ npm run build       # tsc -p tsconfig.build.json -> dist/
 npm run typecheck   # strict tsc over src/ including tests
 npm run test        # vitest run (unit + integration)
 npm run lint        # eslint src/
+npm run bench       # build + synthetic benchmark (search latency, context reduction)
 ```
 
-All four must pass before committing anything non-trivial. `npm pack --dry-run` before any release commit.
+All four must pass before committing anything non-trivial (`bench` is optional locally, run it when touching search/ranking). `npm pack --dry-run` before any release commit.
 
 ## Structure rules
 
