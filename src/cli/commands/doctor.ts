@@ -1,5 +1,6 @@
 import type { Command } from "commander";
-import { execFileSync } from "node:child_process";
+import { constants as fsConstants, accessSync, statSync } from "node:fs";
+import { delimiter, join } from "node:path";
 import { withRuntime, fail } from "../context.js";
 
 interface Check {
@@ -7,6 +8,11 @@ interface Check {
   ok: boolean;
   detail: string;
 }
+
+const WINDOWS = process.platform === "win32";
+const PATH_EXTENSIONS = WINDOWS
+  ? (process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";")
+  : [""];
 
 export function registerDoctor(program: Command): void {
   program
@@ -71,20 +77,25 @@ export function registerDoctor(program: Command): void {
 }
 
 function isExecutable(command: string): boolean {
-  if (command.includes("/") || command.includes("\\")) {
-    try {
-      execFileSync("test", ["-x", command], { stdio: "ignore" });
-      return true;
-    } catch {
-      return false;
-    }
+  if (command.includes("/") || command.includes("\\") || command.includes(".")) {
+    return isFileExecutable(command);
   }
   return whichSync(command) !== null;
 }
 
+function isFileExecutable(candidate: string): boolean {
+  try {
+    statSync(candidate);
+    accessSync(candidate, fsConstants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function looksLikeNpxPackage(definition: { command: string; args: string[] }): boolean {
-  const base = commandBaseName(definition.command);
-  return base === "npx" || base === "bunx" || base === "pnpm dlx";
+  const base = commandBaseName(definition.command).toLowerCase();
+  return base === "npx" || base === "npx.cmd" || base === "bunx" || base === "pnpm";
 }
 
 function commandBaseName(command: string): string {
@@ -92,10 +103,19 @@ function commandBaseName(command: string): string {
 }
 
 function whichSync(command: string): string | null {
-  try {
-    const output = execFileSync("which", [command], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
-    return output.trim() || null;
-  } catch {
-    return null;
+  const pathVariable = process.env.PATH ?? "";
+  for (const dir of pathVariable.split(delimiter)) {
+    if (!dir) continue;
+    for (const extension of PATH_EXTENSIONS) {
+      const candidate = join(dir, `${command}${extension}`);
+      try {
+        statSync(candidate);
+        return candidate;
+      } catch {
+        // keep scanning
+      }
+    }
   }
+  return null;
 }
+
