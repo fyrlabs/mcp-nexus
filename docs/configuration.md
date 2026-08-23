@@ -43,6 +43,15 @@ See [`examples/project-mcp.json`](../examples/project-mcp.json). Shape summary:
   "routing": {
     "strategy": "adaptive",
     "semanticSearch": false,
+    "semantic": {
+      "provider": "null",
+      "model": "text-embedding-3-small",
+      "baseUrl": "http://localhost:11434/v1",
+      "apiKey": "${OPENAI_API_KEY}",
+      "dimensions": 16,
+      "batchSize": 64,
+      "timeoutMs": 20000
+    },
     "prefetch": true,
     "limit": 8,
     "minScore": 0.05,
@@ -84,6 +93,31 @@ logs. Use references rather than plaintext values wherever possible.
 Ids must match `[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}` because they prefix every capability id:
 `<server-id>.<domain>.<operation>` (e.g. `github.pull_requests.list`). Collisions get
 deterministic `_2`, `_3…` suffixes.
+
+## Semantic search
+
+Off by default. Enable it by setting `routing.semanticSearch: true` and choosing a provider
+under `routing.semantic`:
+
+| Provider | Use case | Notes |
+|---|---|---|
+| `null` (default) | Lexical-only search | Exact + BM25 still work; no network, no model. |
+| `hash` | Offline / air-gapped | Deterministic local feature-hashing embeddings (256d). Catches word-order and vocabulary overlap, not deep semantics. |
+| `openai` | Real semantics | Any OpenAI-compatible `/embeddings` endpoint: cloud APIs, or a fully-local [Ollama](https://ollama.com) (`baseUrl: "http://localhost:11434/v1"`, e.g. model `nomic-embed-text`) or LM Studio. |
+
+Behavior:
+
+- Capability texts (title, description, keywords) are embedded once at index time in batches
+  and cached in SQLite (`capability_embeddings`), keyed by provider and model. Restarts
+  hydrate from the cache; only new or changed tools are embedded again.
+- Query embeddings happen per search. If the endpoint is unreachable, Nexus logs a warning and
+  falls back to exact + lexical search for that query — search never fails because of the
+  semantic layer.
+- `dimensions` is optional for `openai`; set it to catch endpoint/model mismatches early.
+- `apiKey` supports `${VAR}` substitution like every other config string. With a local Ollama
+  endpoint no key is needed.
+- Only capability text is ever sent to the endpoint — never tool arguments, secrets, or
+  analytics.
 
 ## Risk classification
 

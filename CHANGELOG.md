@@ -5,6 +5,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 follows [Semantic Versioning](https://semver.org/) — pre-1.0, so breaking changes may land in
 minor releases.
 
+## [0.5.0] - 2026-08-23
+
+### Added
+
+- Real semantic search, opt-in via `routing.semanticSearch` + `routing.semantic`:
+  - `openai` provider works with any OpenAI-compatible `/embeddings` endpoint, including fully-local Ollama (`baseUrl: http://localhost:11434/v1`) and LM Studio; no new npm dependencies.
+  - `hash` provider: deterministic local feature-hashing embeddings for offline/air-gapped use.
+  - Embeddings are batched at index time and persisted in SQLite (migration v2, `capability_embeddings`), keyed by provider+model; restarts hydrate from cache and never re-embed unchanged tools.
+  - Provider failures at index or query time degrade to exact + lexical search (spec fallback behavior); capability replacement now diffs instead of wiping, preserving cache entries for unchanged tools.
+- Public API: `HashingEmbeddingProvider`, `OpenAICompatibleProvider`, `createEmbeddingProvider`, `EmbeddingCacheRepository`, `SemanticCacheAdapter`, `expandAliases`, `normalizeQuery`.
+
 ## [0.4.0] - 2026-08-23
 
 ### Added

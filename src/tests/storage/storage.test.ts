@@ -28,9 +28,9 @@ describe("storage/database", () => {
   afterEach(() => db.close());
 
   it("applies migrations once and reports schema version", () => {
-    expect(db.schemaVersion).toBe(1);
+    expect(db.schemaVersion).toBe(2);
     db.migrate();
-    expect(db.schemaVersion).toBe(1);
+    expect(db.schemaVersion).toBe(2);
   });
 
   it("supports transactions with rollback on failure", () => {

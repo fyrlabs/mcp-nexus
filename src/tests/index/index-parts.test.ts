@@ -138,6 +138,7 @@ describe("index/semantic", () => {
     const provider = {
       name: "scripted",
       dimensions: 3,
+      active: true,
       embed: async (): Promise<number[]> => responses.shift() ?? [0, 0, 0],
     };
     const semantic = new SemanticIndex(provider as never);
