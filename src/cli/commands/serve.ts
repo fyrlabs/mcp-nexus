@@ -1,8 +1,13 @@
 import type { Command } from "commander";
+import { createWriteStream } from "node:fs";
+import { mkdirSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { Writable } from "node:stream";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createRuntime } from "../../runtime/create-runtime.js";
 import { createNexusMcpServer } from "../../mcp/nexus-server.js";
-import { createLogger } from "../../utils/logger.js";
+import { dataDirFor, findProjectConfig } from "../../config/paths.js";
+import { createLogger, type Logger } from "../../utils/logger.js";
 import type { CommandContext } from "../context.js";
 import { fail } from "../context.js";
 
@@ -17,8 +22,57 @@ export function registerServe(program: Command): void {
     });
 }
 
+function resolveLogPath(ctx: CommandContext): string | null {
+  try {
+    const projectConfig = ctx.configPath
+      ? resolve(ctx.cwd, ctx.configPath)
+      : findProjectConfig(ctx.cwd);
+    const projectRoot = projectConfig ? dirname(projectConfig) : ctx.cwd;
+    const scope = projectConfig !== null ? "project" : "global";
+    return join(dataDirFor(projectRoot, scope), "logs", "runtime.log");
+  } catch {
+    return null;
+  }
+}
+
+class TeeStream extends Writable {
+  constructor(private readonly targets: NodeJS.WritableStream[]) {
+    super();
+  }
+
+  override _write(
+    chunk: string | Uint8Array,
+    _encoding: BufferEncoding,
+    callback: (error?: Error | null) => void,
+  ): void {
+    for (const target of this.targets) {
+      target.write(chunk);
+    }
+    callback();
+  }
+}
+
+function createServeLogger(ctx: CommandContext): { logger: Logger; close(): void; logPath: string | null } {
+  const logPath = resolveLogPath(ctx);
+  if (logPath === null) {
+    return { logger: createLogger("nexus"), close: () => undefined, logPath };
+  }
+  try {
+    mkdirSync(dirname(logPath), { recursive: true });
+    const fileStream = createWriteStream(logPath, { flags: "a" });
+    const tee = new TeeStream([process.stderr, fileStream]);
+    return {
+      logger: createLogger("nexus", { stream: tee }),
+      close: () => fileStream.end(),
+      logPath,
+    };
+  } catch {
+    return { logger: createLogger("nexus"), close: () => undefined, logPath };
+  }
+}
+
 async function serve(ctx: CommandContext): Promise<void> {
-  const logger = createLogger("nexus");
+  const { logger, close, logPath } = createServeLogger(ctx);
   const runtime = createRuntime({ cwd: ctx.cwd, configPath: ctx.configPath, logger });
   await runtime.initialize();
 
@@ -45,6 +99,7 @@ async function serve(ctx: CommandContext): Promise<void> {
 
   const shutdown = async (): Promise<void> => {
     await runtime.shutdown();
+    close();
     process.exit(0);
   };
   process.on("SIGINT", () => void shutdown());
@@ -53,5 +108,6 @@ async function serve(ctx: CommandContext): Promise<void> {
   await mcpServer.connect(new StdioServerTransport());
   logger.info("mcp-nexus serving on stdio", {
     servers: Object.keys(runtime.config.servers).length,
+    logFile: logPath ?? undefined,
   });
 }
