@@ -198,6 +198,28 @@ describe("cli/commands end-to-end", () => {
     expect(lines.join("\n")).toContain("Analytics reset");
   });
 
+  it("exec runs a capability end-to-end from the CLI", async () => {
+    writeFileSync(
+      join(workDir, "project-mcp.json"),
+      JSON.stringify({
+        version: 1,
+        servers: { mini: { command: "node", args: [MINI_SERVER] } },
+      }),
+    );
+
+    const lines = await cli("exec", "mini.echo_thing", "--json");
+    const result = JSON.parse(lines.join("\n")) as {
+      content?: Array<{ type: string; text?: string }>;
+      isError?: boolean;
+    };
+    expect(result.isError).toBeFalsy();
+    expect(result.content?.[0]?.text).toContain("echoed");
+
+    const statsLines = await cli("analytics", "tools", "--json");
+    const stats = JSON.parse(statsLines.join("\n")) as Array<{ capabilityId: string; totalCalls: number }>;
+    expect(stats.find((stat) => stat.capabilityId === "mini.echo_thing")?.totalCalls).toBe(1);
+  });
+
   it("import pulls mcpServers entries from a generic harness config", async () => {
     const source = join(workDir, "harness.json");
     writeFileSync(

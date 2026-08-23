@@ -9,6 +9,7 @@ import { registerStatus } from "./commands/status.js";
 import { registerDoctor } from "./commands/doctor.js";
 import { registerIndex } from "./commands/index-cmd.js";
 import { registerSearch } from "./commands/search.js";
+import { registerExec } from "./commands/exec.js";
 import { registerAnalytics } from "./commands/analytics.js";
 import { registerConfig } from "./commands/config-cmd.js";
 import { registerLogs } from "./commands/logs.js";
@@ -36,6 +37,7 @@ export function buildProgram(): Command {
     registerDoctor,
     registerIndex,
     registerSearch,
+    registerExec,
     registerAnalytics,
     registerConfig,
     registerLogs,
