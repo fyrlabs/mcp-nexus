@@ -19,6 +19,8 @@ import { createLogger } from "../utils/logger.js";
 import { packageVersion } from "../utils/version.js";
 import type { NexusRuntime } from "./types.js";
 import { NullEmbeddingProvider, type EmbeddingProvider } from "../index/semantic.js";
+import { createEmbeddingProvider } from "../index/embedding-providers.js";
+import { EmbeddingCacheRepository } from "../storage/embedding-cache-repository.js";
 
 export interface RuntimeOptions {
   configPath?: string;
@@ -59,6 +61,25 @@ export function createRuntime(options: RuntimeOptions = {}): NexusRuntime {
     { enabled: config.analytics.enabled, retentionDays: config.analytics.retentionDays },
   );
 
+  const embeddingProvider =
+    options.embeddingProvider ??
+    (config.routing.semanticSearch
+      ? createEmbeddingProvider(config.routing.semantic)
+      : new NullEmbeddingProvider());
+  const embeddingCache = new EmbeddingCacheRepository(database);
+  const semanticCacheAdapter = {
+    loadAll: () => embeddingCache.loadAll(embeddingProvider.name, embeddingProvider.model ?? ""),
+    store: (entries: Map<string, Float32Array>) =>
+      embeddingCache.store(
+        new Map(
+          [...entries].map(([id, vector]) => [
+            id,
+            { provider: embeddingProvider.name, model: embeddingProvider.model ?? "", vector },
+          ]),
+        ),
+      ),
+  };
+
   const catalog: ServerCatalog = {
     get: (serverId) => registry.definition(serverId),
     ids: () => registry.allDefinitions().map((definition) => definition.id),
@@ -90,7 +111,9 @@ export function createRuntime(options: RuntimeOptions = {}): NexusRuntime {
     config.routing,
     logger.child("index"),
     { onEvent: (event) => analytics.record(event) },
-    options.embeddingProvider ?? new NullEmbeddingProvider(),
+    embeddingProvider,
+    Date.now,
+    semanticCacheAdapter,
   );
 
   const policies = new PolicyEngine(config.routing);

@@ -42,6 +42,11 @@ const EXACT_RANK = 1000;
 const SEMANTIC_RANK = 100;
 const SEARCH_POOL_MULTIPLIER = 4;
 
+export interface SemanticCacheAdapter {
+  loadAll(): Map<string, Float32Array>;
+  store(entries: Map<string, Float32Array>): void;
+}
+
 export class CapabilityIndex {
   private readonly bm25 = new BM25Index();
   private readonly semantic: SemanticIndex;
@@ -57,8 +62,9 @@ export class CapabilityIndex {
     private readonly events: CapabilityIndexEvents = {},
     embeddingProvider: EmbeddingProvider = new NullEmbeddingProvider(),
     private readonly now: () => number = Date.now,
+    semanticCache?: SemanticCacheAdapter,
   ) {
-    this.semantic = new SemanticIndex(embeddingProvider);
+    this.semantic = new SemanticIndex(embeddingProvider, semanticCache);
   }
 
   get semanticEnabled(): boolean {
@@ -182,11 +188,17 @@ export class CapabilityIndex {
     }
     if (!this.semantic.enabled) return;
     this.semantic.clear();
-    for (const capability of allCapabilities) {
-      await this.semantic.indexText(
-        capability.capabilityId,
-        `${capability.title}. ${capability.description}. ${capability.metadata.keywords.join(" ")}`,
-      );
+    await this.semantic.hydrateFromCache();
+    const missing = allCapabilities.filter((capability) => !this.semantic.has(capability.capabilityId));
+    if (missing.length === 0) return;
+    const stored = await this.semantic.indexTexts(
+      missing.map((capability) => ({
+        id: capability.capabilityId,
+        text: `${capability.title}. ${capability.description}. ${capability.metadata.keywords.join(" ")}`,
+      })),
+    );
+    if (stored > 0) {
+      this.logger.debug("embedded capabilities", { provider: this.semantic.providerName, stored });
     }
   }
 

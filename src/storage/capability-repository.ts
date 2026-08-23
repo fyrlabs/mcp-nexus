@@ -7,7 +7,17 @@ export class CapabilityRepository {
 
   replaceServerCapabilities(serverId: string, capabilities: Capability[], now = Date.now()): number {
     return this.db.transaction(() => {
-      this.db.run(`DELETE FROM capabilities WHERE server_id = ?`, serverId);
+      const existingRows = this.db.all(
+        `SELECT capability_id FROM capabilities WHERE server_id = ?`,
+        serverId,
+      );
+      const desired = new Set(capabilities.map((capability) => capability.capabilityId));
+      for (const row of existingRows) {
+        const id = String(row.capability_id);
+        if (!desired.has(id)) {
+          this.db.run(`DELETE FROM capabilities WHERE capability_id = ?`, id);
+        }
+      }
       for (const capability of capabilities) {
         this.insert(capability, now);
       }

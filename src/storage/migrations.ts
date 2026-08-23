@@ -80,4 +80,21 @@ CREATE TABLE IF NOT EXISTS tool_sequences (
 CREATE INDEX IF NOT EXISTS idx_sequences_prev ON tool_sequences(previous_capability_id, occurrences DESC);
 `;
 
-export const MIGRATIONS: Migration[] = [{ version: 1, up: V1_INITIAL_SCHEMA }];
+export const MIGRATIONS: Migration[] = [
+  { version: 1, up: V1_INITIAL_SCHEMA },
+  {
+    version: 2,
+    up: `
+CREATE TABLE IF NOT EXISTS capability_embeddings (
+  capability_id TEXT PRIMARY KEY REFERENCES capabilities(capability_id) ON DELETE CASCADE ON UPDATE CASCADE,
+  provider TEXT NOT NULL,
+  model TEXT NOT NULL DEFAULT '',
+  dims INTEGER NOT NULL,
+  vector BLOB NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_capability_embeddings_provider ON capability_embeddings(provider, model);
+`,
+  },
+];

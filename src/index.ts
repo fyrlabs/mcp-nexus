@@ -39,6 +39,13 @@ export { BM25Index } from "./index/bm25.js";
 export type { LexicalDocument } from "./index/bm25.js";
 export { NullEmbeddingProvider, SemanticIndex, cosineSimilarity } from "./index/semantic.js";
 export type { EmbeddingProvider } from "./index/semantic.js";
+export {
+  HashingEmbeddingProvider,
+  OpenAICompatibleProvider,
+  createEmbeddingProvider,
+} from "./index/embedding-providers.js";
+export type { OpenAICompatibleOptions } from "./index/embedding-providers.js";
+export type { SemanticCacheAdapter } from "./index/capability-index.js";
 export { CapabilityIndex } from "./index/capability-index.js";
 export type { IndexResult } from "./index/capability-index.js";
 export { LifecycleManager, DEFAULT_TIMEOUTS, HOT_USAGE_THRESHOLD, WARM_USAGE_THRESHOLD } from "./lifecycle/lifecycle-manager.js";
@@ -60,6 +67,7 @@ export { Database } from "./storage/database.js";
 export { CapabilityRepository } from "./storage/capability-repository.js";
 export { ServerRepository } from "./storage/server-repository.js";
 export { AnalyticsRepository } from "./storage/analytics-repository.js";
+export { EmbeddingCacheRepository } from "./storage/embedding-cache-repository.js";
 export { AnalyticsEngine } from "./analytics/analytics-engine.js";
 export { createLogger } from "./utils/logger.js";
 export type { Logger, LogLevel } from "./utils/logger.js";
