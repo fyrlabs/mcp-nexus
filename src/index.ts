@@ -32,7 +32,7 @@ export { loadConfig, validateConfig } from "./config/loader.js";
 export type { LoadConfigOptions, ResolvedConfig, ResolvedServer } from "./config/loader.js";
 export { dataDirFor, databasePathFor, findProjectConfig, globalConfigPath } from "./config/paths.js";
 export { substituteEnvDeep } from "./config/env.js";
-export { BUILT_IN_ALIASES, tokenize } from "./index/text.js";
+export { BUILT_IN_ALIASES, expandAliases, normalizeQuery, tokenize } from "./index/text.js";
 export { deriveCapabilityId } from "./index/capability-id.js";
 export { classifyRisk } from "./index/risk.js";
 export { BM25Index } from "./index/bm25.js";
