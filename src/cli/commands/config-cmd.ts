@@ -68,7 +68,10 @@ const TEMPLATE = `
     "callTimeoutMs": 120000,
     "hotIdleTimeoutMs": 900000,
     "warmIdleTimeoutMs": 300000,
-    "coldIdleTimeoutMs": 60000
+    "coldIdleTimeoutMs": 60000,
+    "quarantineThreshold": 3,
+    "quarantineBackoffMs": 30000,
+    "quarantineMaxBackoffMs": 300000
   },
   "analytics": {
     "enabled": true,

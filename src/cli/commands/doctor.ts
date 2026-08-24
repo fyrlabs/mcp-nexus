@@ -33,6 +33,17 @@ export function registerDoctor(program: Command): void {
             ok: true,
             detail: runtime.config.paths.database,
           });
+          for (const health of runtime.lifecycle.healthAll()) {
+            if (!health.quarantined) continue;
+            const retryInMs = Math.max(0, (health.quarantinedUntil ?? 0) - Date.now());
+            checks.push({
+              name: `health:${health.serverId}`,
+              ok: false,
+              detail:
+                `quarantined after ${health.consecutiveFailures} consecutive failures ` +
+                `(last: ${health.lastFailureCode ?? "unknown"}); retrying in ${Math.ceil(retryInMs / 1000)}s`,
+            });
+          }
           for (const definition of runtime.registry.allDefinitions()) {
             if (definition.missingEnvVars.length > 0) {
               checks.push({

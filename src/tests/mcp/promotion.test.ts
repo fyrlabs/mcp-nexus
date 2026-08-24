@@ -17,6 +17,7 @@ async function connectClient(runtime: NexusRuntime): Promise<Client> {
     index: runtime.index,
     analytics: runtime.analytics,
     policies: runtime.policies,
+    lifecycle: runtime.lifecycle,
     promotion: runtime.config.routing.promotion,
   });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();

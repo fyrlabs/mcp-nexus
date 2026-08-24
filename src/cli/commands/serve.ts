@@ -100,6 +100,7 @@ async function serve(ctx: CommandContext): Promise<void> {
     index: runtime.index,
     analytics: runtime.analytics,
     policies: runtime.policies,
+    lifecycle: runtime.lifecycle,
     promotion: runtime.config.routing.promotion,
   });
 

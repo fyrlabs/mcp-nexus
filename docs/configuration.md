@@ -67,7 +67,10 @@ See [`examples/project-mcp.json`](../examples/project-mcp.json). Shape summary:
     "indexTimeoutMs": 30000,
     "hotIdleTimeoutMs": 900000,
     "warmIdleTimeoutMs": 300000,
-    "coldIdleTimeoutMs": 60000
+    "coldIdleTimeoutMs": 60000,
+    "quarantineThreshold": 3,          // consecutive failures before quarantine; 0 disables
+    "quarantineBackoffMs": 30000,      // first quarantine window, doubling per extra failure
+    "quarantineMaxBackoffMs": 300000   // cap on that window
   },
   "analytics": {
     "enabled": true,
@@ -75,6 +78,24 @@ See [`examples/project-mcp.json`](../examples/project-mcp.json). Shape summary:
   }
 }
 ```
+
+## Server quarantine
+
+A downstream server that keeps failing to start would otherwise cost a full `startupTimeoutMs`
+on every routed call. Nexus counts consecutive lifecycle failures per server (failed start,
+unexpected disconnect) and quarantines it once the count reaches `quarantineThreshold`.
+
+While a server is quarantined:
+
+- start requests fail immediately with `MCP_QUARANTINED` instead of spawning the process,
+- its capabilities are marked unavailable, so search stops offering them,
+- `status` and `doctor` report the quarantine and the time left.
+
+The window is `quarantineBackoffMs` doubled for each failure past the threshold, capped at
+`quarantineMaxBackoffMs` (5 minutes by default). After it expires the next call retries the
+server for real; one successful start clears the counter and the quarantine. Counters are
+stored in SQLite, so a harness that respawns Nexus per session does not reset the backoff.
+Set `quarantineThreshold` to `0` to turn the whole mechanism off.
 
 ## Environment variable substitution
 

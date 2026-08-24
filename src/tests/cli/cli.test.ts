@@ -159,8 +159,16 @@ describe("cli/commands end-to-end", () => {
     expect(searchLines.join("\n")).toContain("mini.echo_thing");
 
     const statusLines = await cli("status", "--json");
-    const status = JSON.parse(statusLines.join("\n")) as { capabilitiesIndexed: number };
+    const status = JSON.parse(statusLines.join("\n")) as {
+      capabilitiesIndexed: number;
+      serversQuarantined: number;
+      servers: Array<{ id: string; health: number; consecutiveFailures: number; quarantinedUntil: number | null }>;
+    };
     expect(status.capabilitiesIndexed).toBe(2);
+    expect(status.serversQuarantined).toBe(0);
+    expect(status.servers).toEqual([
+      expect.objectContaining({ id: "mini", health: 1, consecutiveFailures: 0, quarantinedUntil: null }),
+    ]);
 
     const analyticsSummary = await cli("analytics", "summary", "--json");
     const summary = JSON.parse(analyticsSummary.join("\n")) as { capabilitiesIndexed: number };

@@ -66,6 +66,9 @@ export const lifecycleSchema = z.object({
   hotIdleTimeoutMs: z.number().int().min(0).max(86_400_000).default(15 * 60_000),
   warmIdleTimeoutMs: z.number().int().min(0).max(86_400_000).default(5 * 60_000),
   coldIdleTimeoutMs: z.number().int().min(0).max(86_400_000).default(60_000),
+  quarantineThreshold: z.number().int().min(0).max(100).default(3),
+  quarantineBackoffMs: z.number().int().min(1000).max(86_400_000).default(30_000),
+  quarantineMaxBackoffMs: z.number().int().min(1000).max(86_400_000).default(300_000),
 });
 
 export const analyticsSchema = z.object({

@@ -167,3 +167,163 @@ describe("lifecycle/lifecycle-manager", () => {
     await manager.dispose();
   });
 });
+
+describe("lifecycle/quarantine", () => {
+  const QUARANTINE = { failureThreshold: 3, backoffMs: 1000, maxBackoffMs: 4000 };
+
+  function brokenFactory(failUntil: { calls: number }): { create: () => never; attempts: () => number } {
+    let attempts = 0;
+    return {
+      create: (): never => {
+        attempts++;
+        failUntil.calls = attempts;
+        throw new Error("spawn broken ENOENT");
+      },
+      attempts: () => attempts,
+    };
+  }
+
+  function managerFor(
+    factory: { create: (definition: MCPServerDefinition) => never },
+    clock: () => number,
+    events = {},
+    quarantine = QUARANTINE,
+  ): LifecycleManager {
+    const catalog = {
+      get: (id: string) => (id === "broken" ? definition("broken") : undefined),
+      ids: () => ["broken"],
+    };
+    return new LifecycleManager(
+      catalog,
+      factory as never,
+      "0.0.0-test",
+      TIMEOUTS,
+      createLogger("test", { level: "silent" }),
+      events,
+      () => 0,
+      clock,
+      quarantine,
+    );
+  }
+
+  it("quarantines a server after the configured consecutive failures and then fails fast", async () => {
+    const tick = 0;
+    const factory = brokenFactory({ calls: 0 });
+    const manager = managerFor(factory, () => tick);
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await expect(manager.ensureStarted("broken")).rejects.toMatchObject({ code: "MCP_START_FAILED" });
+    }
+    expect(factory.attempts()).toBe(3);
+    expect(manager.isQuarantined("broken")).toBe(true);
+    expect(manager.health("broken")).toMatchObject({
+      consecutiveFailures: 3,
+      quarantined: true,
+      score: 0,
+      lastFailureCode: "MCP_START_FAILED",
+    });
+
+    await expect(manager.ensureStarted("broken")).rejects.toMatchObject({ code: "MCP_QUARANTINED" });
+    expect(factory.attempts()).toBe(3);
+    await manager.dispose();
+  });
+
+  it("backs off exponentially up to the cap and retries once the window expires", async () => {
+    let tick = 0;
+    const factory = brokenFactory({ calls: 0 });
+    const manager = managerFor(factory, () => tick);
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await expect(manager.ensureStarted("broken")).rejects.toBeDefined();
+    }
+    expect(manager.health("broken").quarantinedUntil).toBe(1000);
+
+    tick = 1000;
+    expect(manager.isQuarantined("broken")).toBe(false);
+    await expect(manager.ensureStarted("broken")).rejects.toMatchObject({ code: "MCP_START_FAILED" });
+    expect(factory.attempts()).toBe(4);
+    expect(manager.health("broken").quarantinedUntil).toBe(1000 + 2000);
+
+    tick = 3000;
+    await expect(manager.ensureStarted("broken")).rejects.toMatchObject({ code: "MCP_START_FAILED" });
+    expect(manager.health("broken").quarantinedUntil).toBe(3000 + 4000);
+
+    tick = 7000;
+    await expect(manager.ensureStarted("broken")).rejects.toMatchObject({ code: "MCP_START_FAILED" });
+    expect(manager.health("broken").quarantinedUntil).toBe(7000 + 4000);
+    await manager.dispose();
+  });
+
+  it("clears failures and quarantine as soon as a start succeeds", async () => {
+    let tick = 0;
+    let failing = true;
+    const { factory: workingFactory } = createMockTransportFactory({ broken: toolsFor("broken") });
+    const factory = {
+      create: (def: MCPServerDefinition) => {
+        if (failing) throw new Error("spawn broken ENOENT");
+        return workingFactory.create(def);
+      },
+    };
+    const changes: Array<{ failures: number; quarantined: boolean }> = [];
+    const manager = managerFor(factory as never, () => tick, {
+      onHealthChanged: (_id: string, health: { consecutiveFailures: number; quarantined: boolean }) =>
+        changes.push({ failures: health.consecutiveFailures, quarantined: health.quarantined }),
+    });
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await expect(manager.ensureStarted("broken")).rejects.toBeDefined();
+    }
+    expect(changes.map((entry) => entry.failures)).toEqual([1, 2, 3]);
+    expect(changes.at(-1)?.quarantined).toBe(true);
+
+    tick = 1000;
+    failing = false;
+    await manager.ensureStarted("broken");
+    expect(manager.health("broken")).toMatchObject({ consecutiveFailures: 0, quarantined: false, score: 1 });
+    expect(changes.at(-1)).toEqual({ failures: 0, quarantined: false });
+    await manager.dispose();
+  });
+
+  it("never quarantines when the threshold is zero", async () => {
+    const factory = brokenFactory({ calls: 0 });
+    const manager = managerFor(factory, () => 0, {}, { ...QUARANTINE, failureThreshold: 0 });
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await expect(manager.ensureStarted("broken")).rejects.toMatchObject({ code: "MCP_START_FAILED" });
+    }
+    expect(factory.attempts()).toBe(5);
+    expect(manager.isQuarantined("broken")).toBe(false);
+    expect(manager.health("broken")).toMatchObject({ consecutiveFailures: 5, score: 0 });
+    await manager.dispose();
+  });
+
+  it("counts an unexpected disconnect as a lifecycle failure", async () => {
+    const { factory } = createMockTransportFactory({ alpha: toolsFor("alpha") });
+    const catalog = { get: (id: string) => (id === "alpha" ? definition(id) : undefined), ids: () => ["alpha"] };
+    const manager = new LifecycleManager(catalog, factory, "0.0.0-test", TIMEOUTS, createLogger("test", { level: "silent" }));
+    await manager.ensureStarted("alpha");
+    (manager as unknown as { handleUnexpectedDisconnect(id: string): void }).handleUnexpectedDisconnect("alpha");
+    expect(manager.health("alpha")).toMatchObject({
+      consecutiveFailures: 1,
+      lastFailureCode: "MCP_CONNECTION_FAILED",
+    });
+    expect(manager.isRunning("alpha")).toBe(false);
+    await manager.dispose();
+  });
+
+  it("restores persisted health so quarantine survives a restart", async () => {
+    const tick = 5000;
+    const factory = brokenFactory({ calls: 0 });
+    const manager = managerFor(factory, () => tick);
+    manager.restoreHealth("broken", {
+      consecutiveFailures: 4,
+      quarantinedUntil: 9000,
+      lastFailureAt: 4000,
+      lastFailureCode: "MCP_START_FAILED",
+    });
+    await expect(manager.ensureStarted("broken")).rejects.toMatchObject({ code: "MCP_QUARANTINED" });
+    expect(factory.attempts()).toBe(0);
+    expect(manager.quarantineRetryMs("broken")).toBe(4000);
+    expect(manager.healthAll().map((entry) => entry.serverId)).toEqual(["broken"]);
+    await manager.dispose();
+  });
+});

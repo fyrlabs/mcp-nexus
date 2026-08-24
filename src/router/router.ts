@@ -184,7 +184,8 @@ export class Router {
       const isLifecycleFailure =
         nexusError.code === "MCP_START_FAILED" ||
         nexusError.code === "MCP_CONNECTION_FAILED" ||
-        nexusError.code === "TIMEOUT";
+        nexusError.code === "TIMEOUT" ||
+        nexusError.code === "MCP_QUARANTINED";
       if (isLifecycleFailure) this.index.markUnavailable(capability.serverId);
       this.analytics.recordExecution({
         serverId: capability.serverId,

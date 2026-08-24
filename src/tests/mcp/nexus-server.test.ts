@@ -19,6 +19,7 @@ async function connectClient(
     index: runtime.index,
     analytics: runtime.analytics,
     policies: runtime.policies,
+    lifecycle: runtime.lifecycle,
     promotion: "off",
     ...overrides,
   });

@@ -1,5 +1,5 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { NexusError, mcpNotFound } from "../models/errors.js";
+import { NexusError, mcpNotFound, mcpQuarantined } from "../models/errors.js";
 import type { MCPServerDefinition, ServerStatus } from "../models/types.js";
 import { DownstreamClient, NEXUS_CLIENT_NAME } from "../mcp/downstream-client.js";
 import type { TransportFactory } from "../mcp/transport-factory.js";
@@ -24,6 +24,28 @@ export const DEFAULT_TIMEOUTS: LifecycleTimeouts = {
   coldIdleTimeoutMs: 60_000,
 };
 
+export interface QuarantinePolicy {
+  failureThreshold: number;
+  backoffMs: number;
+  maxBackoffMs: number;
+}
+
+export const DEFAULT_QUARANTINE: QuarantinePolicy = {
+  failureThreshold: 3,
+  backoffMs: 30_000,
+  maxBackoffMs: 300_000,
+};
+
+export interface ServerHealth {
+  serverId: string;
+  consecutiveFailures: number;
+  quarantinedUntil: number | null;
+  lastFailureAt: number | null;
+  lastFailureCode: string | null;
+  quarantined: boolean;
+  score: number;
+}
+
 export interface ServerCatalog {
   get(serverId: string): MCPServerDefinition | undefined;
   ids(): string[];
@@ -33,12 +55,20 @@ export interface LifecycleEvents {
   onStarted?: (serverId: string) => void;
   onStopped?: (serverId: string) => void;
   onStartFailed?: (serverId: string, error: NexusError) => void;
+  onHealthChanged?: (serverId: string, health: ServerHealth) => void;
 }
 
 export interface ManagedStatus {
   serverId: string;
   status: ServerStatus;
   lastUsedAt: number | null;
+}
+
+interface HealthState {
+  consecutiveFailures: number;
+  quarantinedUntil: number | null;
+  lastFailureAt: number | null;
+  lastFailureCode: string | null;
 }
 
 interface RunningServer {
@@ -55,6 +85,7 @@ export class LifecycleManager {
   private readonly running = new Map<string, RunningServer>();
   private readonly pending = new Map<string, Promise<RunningServer>>();
   private readonly inflightCalls = new Map<string, number>();
+  private readonly healthState = new Map<string, HealthState>();
   private sweepTimer: NodeJS.Timeout | null = null;
 
   constructor(
@@ -66,6 +97,7 @@ export class LifecycleManager {
     private readonly events: LifecycleEvents = {},
     private readonly usageForServer: (serverId: string) => number = () => 0,
     private readonly now: () => number = Date.now,
+    private readonly quarantine: QuarantinePolicy = DEFAULT_QUARANTINE,
   ) {}
 
   startSweeper(intervalMs = 15_000): void {
@@ -167,6 +199,43 @@ export class LifecycleManager {
     return count;
   }
 
+  isQuarantined(serverId: string): boolean {
+    const until = this.healthState.get(serverId)?.quarantinedUntil ?? null;
+    return until !== null && this.now() < until;
+  }
+
+  quarantineRetryMs(serverId: string): number {
+    const until = this.healthState.get(serverId)?.quarantinedUntil ?? null;
+    if (until === null) return 0;
+    return Math.max(0, until - this.now());
+  }
+
+  health(serverId: string): ServerHealth {
+    return this.toHealth(serverId, this.healthState.get(serverId) ?? emptyHealthState());
+  }
+
+  healthAll(): ServerHealth[] {
+    const ids = new Set([...this.catalog.ids(), ...this.healthState.keys()]);
+    return [...ids].sort().map((id) => this.health(id));
+  }
+
+  restoreHealth(serverId: string, state: HealthState): void {
+    this.healthState.set(serverId, {
+      consecutiveFailures: Math.max(0, state.consecutiveFailures),
+      quarantinedUntil: state.quarantinedUntil,
+      lastFailureAt: state.lastFailureAt,
+      lastFailureCode: state.lastFailureCode,
+    });
+  }
+
+  clearQuarantine(serverId: string): void {
+    const state = this.healthState.get(serverId);
+    if (!state || (state.consecutiveFailures === 0 && state.quarantinedUntil === null)) return;
+    state.consecutiveFailures = 0;
+    state.quarantinedUntil = null;
+    this.events.onHealthChanged?.(serverId, this.toHealth(serverId, state));
+  }
+
   async startAlwaysOnServers(): Promise<string[]> {
     const started: string[] = [];
     for (const id of this.catalog.ids()) {
@@ -191,6 +260,9 @@ export class LifecycleManager {
     if (!definition.enabled) {
       throw new NexusError("PERMISSION_DENIED", `MCP server "${serverId}" is disabled`, { details: { serverId } });
     }
+    if (this.isQuarantined(serverId)) {
+      throw mcpQuarantined(serverId, this.quarantineRetryMs(serverId));
+    }
     const managed: RunningServer = {
       definition,
       client: new DownstreamClient(
@@ -210,6 +282,7 @@ export class LifecycleManager {
       await withTimeout(managed.client.connect(), this.timeouts.startupTimeoutMs, `MCP "${serverId}" startup`);
       managed.status = "running";
       managed.lastUsedAt = this.now();
+      this.clearQuarantine(serverId);
       this.events.onStarted?.(serverId);
       this.logger.debug("downstream server started", { serverId });
       return managed;
@@ -218,6 +291,7 @@ export class LifecycleManager {
       await managed.client.close().catch(() => undefined);
       const nexusError = toLifecycleError(serverId, error);
       managed.status = "failed";
+      this.recordFailure(serverId, nexusError.code);
       this.events.onStartFailed?.(serverId, nexusError);
       this.logger.warn("downstream server failed to start", { serverId, code: nexusError.code });
       throw nexusError;
@@ -229,7 +303,49 @@ export class LifecycleManager {
     if (!managed) return;
     this.running.delete(serverId);
     managed.status = "stopped";
+    this.recordFailure(serverId, "MCP_CONNECTION_FAILED");
     this.events.onStopped?.(serverId);
+  }
+
+  private recordFailure(serverId: string, code: string): void {
+    const state = this.healthState.get(serverId) ?? emptyHealthState();
+    this.healthState.set(serverId, state);
+    state.consecutiveFailures += 1;
+    state.lastFailureAt = this.now();
+    state.lastFailureCode = code;
+    const { failureThreshold, backoffMs, maxBackoffMs } = this.quarantine;
+    if (failureThreshold > 0 && state.consecutiveFailures >= failureThreshold) {
+      const backoff = Math.min(backoffMs * 2 ** (state.consecutiveFailures - failureThreshold), maxBackoffMs);
+      state.quarantinedUntil = this.now() + backoff;
+      this.logger.warn("server quarantined after repeated failures", {
+        serverId,
+        consecutiveFailures: state.consecutiveFailures,
+        retryInMs: backoff,
+        code,
+      });
+    }
+    this.events.onHealthChanged?.(serverId, this.toHealth(serverId, state));
+  }
+
+  private toHealth(serverId: string, state: HealthState): ServerHealth {
+    const quarantined = state.quarantinedUntil !== null && this.now() < state.quarantinedUntil;
+    const threshold = this.quarantine.failureThreshold;
+    const score = quarantined
+      ? 0
+      : threshold > 0
+        ? Math.max(0, 1 - state.consecutiveFailures / threshold)
+        : state.consecutiveFailures === 0
+          ? 1
+          : 0;
+    return {
+      serverId,
+      consecutiveFailures: state.consecutiveFailures,
+      quarantinedUntil: state.quarantinedUntil,
+      lastFailureAt: state.lastFailureAt,
+      lastFailureCode: state.lastFailureCode,
+      quarantined,
+      score,
+    };
   }
 
   private async sweepIdle(): Promise<void> {
@@ -254,6 +370,10 @@ export class LifecycleManager {
     this.stopSweeper();
     await this.stopAll();
   }
+}
+
+function emptyHealthState(): HealthState {
+  return { consecutiveFailures: 0, quarantinedUntil: null, lastFailureAt: null, lastFailureCode: null };
 }
 
 function toLifecycleError(serverId: string, error: unknown): NexusError {

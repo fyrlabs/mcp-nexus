@@ -6,6 +6,7 @@ import type { PolicyEngine } from "../router/policies.js";
 import type { Registry } from "../registry/registry.js";
 import type { CapabilityIndex } from "../index/capability-index.js";
 import type { AnalyticsEngine } from "../analytics/analytics-engine.js";
+import type { LifecycleManager } from "../lifecycle/lifecycle-manager.js";
 import type { Capability } from "../models/types.js";
 import type { PromotionMode } from "../config/schema.js";
 import { isNexusError } from "../models/errors.js";
@@ -129,11 +130,12 @@ export interface NexusServerDeps {
   index: CapabilityIndex;
   analytics: AnalyticsEngine;
   policies: PolicyEngine;
+  lifecycle: Pick<LifecycleManager, "healthAll">;
   promotion: PromotionMode;
 }
 
 export function createNexusMcpServer(deps: NexusServerDeps): McpServer {
-  const { router, registry, index, analytics, policies, promotion } = deps;
+  const { router, registry, index, analytics, policies, lifecycle, promotion } = deps;
   const promotedNames = new Set<string>();
   const server = new McpServer(
     { name: "mcp-nexus", version: nexusVersion() },
@@ -309,6 +311,7 @@ export function createNexusMcpServer(deps: NexusServerDeps): McpServer {
           mimeType: "application/json",
           text: JSON.stringify({
             servers: registry.allDefinitions().length,
+            serversQuarantined: lifecycle.healthAll().filter((health) => health.quarantined).length,
             capabilitiesIndexed: index.count(),
             analyticsEnabled: analytics.enabled,
             promotion,

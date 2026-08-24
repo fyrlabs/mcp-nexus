@@ -28,9 +28,9 @@ describe("storage/database", () => {
   afterEach(() => db.close());
 
   it("applies migrations once and reports schema version", () => {
-    expect(db.schemaVersion).toBe(3);
+    expect(db.schemaVersion).toBe(4);
     db.migrate();
-    expect(db.schemaVersion).toBe(3);
+    expect(db.schemaVersion).toBe(4);
   });
 
   it("supports transactions with rollback on failure", () => {
@@ -66,6 +66,34 @@ describe("storage/server-repository", () => {
     expect(servers.get("gh")?.configHash).toBe("hash-2");
     const created = first?.createdAt;
     expect(servers.get("gh")?.createdAt).toBe(created);
+  });
+
+  it("persists quarantine health and defaults it to clean for new rows", () => {
+    servers.ensureServer("gh", "GitHub", "h");
+    expect(servers.get("gh")).toMatchObject({
+      consecutiveFailures: 0,
+      quarantinedUntil: null,
+      lastFailureAt: null,
+      lastFailureCode: null,
+    });
+    servers.setHealth(
+      "gh",
+      { consecutiveFailures: 3, quarantinedUntil: 9000, lastFailureAt: 8000, lastFailureCode: "MCP_START_FAILED" },
+      8000,
+    );
+    expect(servers.get("gh")).toMatchObject({
+      consecutiveFailures: 3,
+      quarantinedUntil: 9000,
+      lastFailureAt: 8000,
+      lastFailureCode: "MCP_START_FAILED",
+      updatedAt: 8000,
+    });
+    servers.setHealth(
+      "gh",
+      { consecutiveFailures: 0, quarantinedUntil: null, lastFailureAt: 8000, lastFailureCode: "MCP_START_FAILED" },
+      9500,
+    );
+    expect(servers.get("gh")?.quarantinedUntil).toBeNull();
   });
 
   it("tracks lifecycle timestamps", () => {

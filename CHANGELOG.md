@@ -5,6 +5,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 follows [Semantic Versioning](https://semver.org/) — pre-1.0, so breaking changes may land in
 minor releases.
 
+## [0.8.0] - 2026-08-24
+
+### Added
+
+- **Server quarantine.** A downstream server that fails to start (or keeps crashing) three times in a row is quarantined: further calls fail instantly instead of waiting out the startup timeout, and its tools drop out of search. The quarantine lifts by itself after 30 seconds, doubling up to 5 minutes if it keeps failing; one successful start clears it. The counters are saved, so restarting your harness does not reset the backoff.
+- **Health in `status` and `doctor`.** `status` shows a HEALTH column and a quarantined count, `status --json` reports per-server health, and `doctor` fails when a server is quarantined and says when it will be retried.
+- Tune or disable it under `lifecycle`: `quarantineThreshold` (0 turns it off), `quarantineBackoffMs`, `quarantineMaxBackoffMs`.
+
+### Changed
+
+- `createNexusMcpServer` now takes a `lifecycle` dependency so `nexus://status` can report quarantined servers. Only affects code embedding Nexus as a library.
+
 ## [0.7.1] - 2026-08-24
 
 ### Fixed

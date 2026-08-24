@@ -101,4 +101,13 @@ CREATE INDEX IF NOT EXISTS idx_capability_embeddings_provider ON capability_embe
     version: 3,
     up: "ALTER TABLE capability_embeddings ADD COLUMN content_hash TEXT NOT NULL DEFAULT '';",
   },
+  {
+    version: 4,
+    up: `
+ALTER TABLE servers ADD COLUMN consecutive_failures INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE servers ADD COLUMN quarantined_until INTEGER;
+ALTER TABLE servers ADD COLUMN last_failure_at INTEGER;
+ALTER TABLE servers ADD COLUMN last_failure_code TEXT;
+`,
+  },
 ];

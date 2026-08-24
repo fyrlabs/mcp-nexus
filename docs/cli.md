@@ -38,8 +38,8 @@ mcp-nexus add jira -d "Issue tracking" -t tickets \
 
 | Command | Description |
 |---|---|
-| `status [--json]` | Config/data/database paths, server table, running count, index size, analytics state. |
-| `doctor` | Validate config, environment references (`${VAR}` resolution), command availability; exit code 1 on failures. |
+| `status [--json]` | Config/data/database paths, server table with health, running and quarantined counts, index size, analytics state. |
+| `doctor` | Validate config, environment references (`${VAR}` resolution), command availability, quarantined servers; exit code 1 on failures. |
 | `config path` | Print which config files resolved and where state lives. |
 | `config template` | Print an annotated example configuration. |
 | `logs [-f] [-n 50]` | Tail `.mcp-nexus/logs/runtime.log`. |

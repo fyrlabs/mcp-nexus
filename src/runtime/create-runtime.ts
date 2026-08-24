@@ -6,7 +6,7 @@ import { ServerRepository } from "../storage/server-repository.js";
 import { AnalyticsRepository } from "../storage/analytics-repository.js";
 import { Registry } from "../registry/registry.js";
 import { StdioTransportFactory, type TransportFactory } from "../mcp/transport-factory.js";
-import { LifecycleManager, type LifecycleTimeouts } from "../lifecycle/lifecycle-manager.js";
+import { LifecycleManager, type LifecycleTimeouts, type QuarantinePolicy } from "../lifecycle/lifecycle-manager.js";
 import { CapabilityIndex } from "../index/capability-index.js";
 import { AnalyticsEngine } from "../analytics/analytics-engine.js";
 import { PolicyEngine } from "../router/policies.js";
@@ -54,6 +54,12 @@ export function createRuntime(options: RuntimeOptions = {}): NexusRuntime {
     hotIdleTimeoutMs: config.lifecycle.hotIdleTimeoutMs,
     warmIdleTimeoutMs: config.lifecycle.warmIdleTimeoutMs,
     coldIdleTimeoutMs: config.lifecycle.coldIdleTimeoutMs,
+  };
+
+  const quarantine: QuarantinePolicy = {
+    failureThreshold: config.lifecycle.quarantineThreshold,
+    backoffMs: config.lifecycle.quarantineBackoffMs,
+    maxBackoffMs: config.lifecycle.quarantineMaxBackoffMs,
   };
 
   const analytics = new AnalyticsEngine(
@@ -112,8 +118,21 @@ export function createRuntime(options: RuntimeOptions = {}): NexusRuntime {
       onStartFailed: (serverId) => {
         serverRepo.setStatus(serverId, "failed");
       },
+      onHealthChanged: (serverId, health) => {
+        serverRepo.setHealth(serverId, health);
+        if (health.quarantined) {
+          capabilityIndex.markUnavailable(serverId);
+          logger.warn("downstream server quarantined", {
+            serverId,
+            consecutiveFailures: health.consecutiveFailures,
+            retryInMs: Math.max(0, (health.quarantinedUntil ?? 0) - Date.now()),
+          });
+        }
+      },
     },
     (serverId) => sumUsageForServer(analytics, capabilityRepo, serverId),
+    Date.now,
+    quarantine,
   );
 
   const capabilityIndex = new CapabilityIndex(
@@ -155,6 +174,10 @@ export function createRuntime(options: RuntimeOptions = {}): NexusRuntime {
     router,
     initialize: async () => {
       registry.syncAll();
+      for (const record of serverRepo.list()) {
+        lifecycle.restoreHealth(record.id, record);
+        if (lifecycle.isQuarantined(record.id)) capabilityIndex.markUnavailable(record.id);
+      }
       await capabilityIndex.hydrate();
       const pruned = analytics.prune();
       if (pruned > 0) logger.info("pruned expired analytics events", { pruned });

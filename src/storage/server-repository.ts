@@ -2,7 +2,14 @@ import type { Capability } from "../models/types.js";
 import { AVAILABILITY, SERVER_STATUSES } from "../models/types.js";
 import type { Database, SqlValue } from "./database.js";
 
-export interface ServerRecord {
+export interface ServerHealthRecord {
+  consecutiveFailures: number;
+  quarantinedUntil: number | null;
+  lastFailureAt: number | null;
+  lastFailureCode: string | null;
+}
+
+export interface ServerRecord extends ServerHealthRecord {
   id: string;
   name: string;
   configHash: string;
@@ -69,6 +76,20 @@ export class ServerRepository {
     );
   }
 
+  setHealth(id: string, health: ServerHealthRecord, now = Date.now()): void {
+    this.db.run(
+      `UPDATE servers
+       SET consecutive_failures = ?, quarantined_until = ?, last_failure_at = ?, last_failure_code = ?, updated_at = ?
+       WHERE id = ?`,
+      health.consecutiveFailures,
+      health.quarantinedUntil,
+      health.lastFailureAt,
+      health.lastFailureCode,
+      now,
+      id,
+    );
+  }
+
   get(id: string): ServerRecord | undefined {
     const row = this.db.get(`SELECT * FROM servers WHERE id = ?`, id);
     return row ? mapServerRow(row) : undefined;
@@ -95,7 +116,16 @@ function mapServerRow(row: Record<string, SqlValue>): ServerRecord {
     lastStartedAt: row.last_started_at === null || row.last_started_at === undefined ? null : Number(row.last_started_at),
     lastConnectedAt:
       row.last_connected_at === null || row.last_connected_at === undefined ? null : Number(row.last_connected_at),
+    consecutiveFailures: Number(row.consecutive_failures ?? 0),
+    quarantinedUntil: nullableNumber(row.quarantined_until),
+    lastFailureAt: nullableNumber(row.last_failure_at),
+    lastFailureCode:
+      row.last_failure_code === null || row.last_failure_code === undefined ? null : String(row.last_failure_code),
   };
+}
+
+function nullableNumber(value: SqlValue | undefined): number | null {
+  return value === null || value === undefined ? null : Number(value);
 }
 
 export function mapCapabilityRow(row: Record<string, SqlValue>): Capability {

@@ -48,8 +48,19 @@ export type { OpenAICompatibleOptions } from "./index/embedding-providers.js";
 export type { SemanticCacheAdapter } from "./index/capability-index.js";
 export { CapabilityIndex } from "./index/capability-index.js";
 export type { IndexResult } from "./index/capability-index.js";
-export { LifecycleManager, DEFAULT_TIMEOUTS, HOT_USAGE_THRESHOLD, WARM_USAGE_THRESHOLD } from "./lifecycle/lifecycle-manager.js";
-export type { LifecycleTimeouts, ServerCatalog } from "./lifecycle/lifecycle-manager.js";
+export {
+  LifecycleManager,
+  DEFAULT_TIMEOUTS,
+  DEFAULT_QUARANTINE,
+  HOT_USAGE_THRESHOLD,
+  WARM_USAGE_THRESHOLD,
+} from "./lifecycle/lifecycle-manager.js";
+export type {
+  LifecycleTimeouts,
+  QuarantinePolicy,
+  ServerCatalog,
+  ServerHealth,
+} from "./lifecycle/lifecycle-manager.js";
 export { StdioTransportFactory } from "./mcp/transport-factory.js";
 export type { TransportFactory } from "./mcp/transport-factory.js";
 export { DownstreamClient } from "./mcp/downstream-client.js";

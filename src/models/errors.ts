@@ -2,6 +2,7 @@ export const NEXUS_ERROR_CODES = [
   "MCP_NOT_FOUND",
   "MCP_START_FAILED",
   "MCP_CONNECTION_FAILED",
+  "MCP_QUARANTINED",
   "CAPABILITY_NOT_FOUND",
   "CAPABILITY_AMBIGUOUS",
   "CAPABILITY_SCHEMA_UNAVAILABLE",
@@ -52,6 +53,14 @@ export function mcpNotFound(serverId: string): NexusError {
   return new NexusError("MCP_NOT_FOUND", `MCP server "${serverId}" is not registered`, {
     details: { serverId },
   });
+}
+
+export function mcpQuarantined(serverId: string, retryAfterMs: number): NexusError {
+  return new NexusError(
+    "MCP_QUARANTINED",
+    `MCP server "${serverId}" is quarantined after repeated failures; retrying in ${Math.ceil(retryAfterMs / 1000)}s`,
+    { details: { serverId, retryAfterMs } },
+  );
 }
 
 export function capabilityNotFound(capabilityId: string): NexusError {

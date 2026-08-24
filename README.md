@@ -83,7 +83,7 @@ execute_capability   { "capabilityId": "github.review_comments.list",
 ## Highlights
 
 - **Local-first.** No cloud service, no account, no telemetry. Delete `.mcp-nexus/` and all learned state is gone.
-- **Lazy execution lifecycle.** After the one-time background index, servers start only when a task needs them, stop after tiered idle timeouts (hot / warm / cold), and are never stopped mid-call.
+- **Lazy execution lifecycle.** After the one-time background index, servers start only when a task needs them, stop after tiered idle timeouts (hot / warm / cold), and are never stopped mid-call. A server that keeps failing to start is quarantined for a short, growing window instead of costing a startup timeout on every call.
 - **Hybrid search.** BM25 lexical ranking over weighted fields, exact id/tool matching, alias expansion (`pr → pull request`, configurable), plus optional semantic search: point `routing.semantic` at any OpenAI-compatible embeddings endpoint (cloud, or fully-local via Ollama) — embeddings are batched, cached in SQLite, and the system falls back to lexical automatically when the endpoint is down (a circuit breaker caps the cost at two failed requests per outage).
 - **Risk policies and optional tool promotion.** Deny destructive capabilities outright, flag unknowns for the agent, and (opt-in, `routing.promotion: "session"`) expose discovered tools directly as `nexus__<server>__<tool>` after discovery (argument schemas are reconstructed from the downstream JSON schema; exotic keywords are simplified).
 - **Adaptive ranking with explanations.** Every result carries its signal breakdown; pinned capabilities outrank learned popularity; blocked capabilities are never suggested.

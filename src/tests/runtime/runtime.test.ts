@@ -40,6 +40,66 @@ async function bootRuntime(dir: string): Promise<NexusRuntime> {
 }
 
 describe("runtime end-to-end (mock downstreams)", () => {
+  it("quarantines a repeatedly failing server, hides it from routing, and remembers across restarts", async () => {
+    await withTempDir(async (dir) => {
+      writeProjectConfig(
+        dir,
+        { github: { command: "mock-gh" }, jira: { command: "mock-jira" } },
+        { lifecycle: { quarantineThreshold: 2, quarantineBackoffMs: 60_000, quarantineMaxBackoffMs: 60_000 } },
+      );
+      const { factory } = createMockTransportFactory({ github: githubTools(), jira: jiraTools() });
+
+      const firstBoot = createRuntime({ cwd: dir, logger: SILENT, transportFactory: factory });
+      await firstBoot.initialize();
+      await firstBoot.startIndexing();
+      const healthy = await firstBoot.router.search("pull requests");
+      expect(healthy.some((match) => match.serverId === "github")).toBe(true);
+      expect(firstBoot.lifecycle.health("github")).toMatchObject({ consecutiveFailures: 0, score: 1 });
+      await firstBoot.shutdown();
+
+      const brokenFactory = {
+        create: (definition: { id: string }) => {
+          if (definition.id === "github") throw new Error("spawn mock-gh ENOENT");
+          return factory.create(definition as never);
+        },
+      };
+      const secondBoot = createRuntime({ cwd: dir, logger: SILENT, transportFactory: brokenFactory as never });
+      await secondBoot.initialize();
+      await expect(secondBoot.execute("github.pull_requests.list", {})).rejects.toMatchObject({
+        code: "MCP_START_FAILED",
+      });
+      await expect(secondBoot.execute("github.pull_requests.list", {})).rejects.toMatchObject({
+        code: "MCP_START_FAILED",
+      });
+      expect(secondBoot.lifecycle.isQuarantined("github")).toBe(true);
+      await expect(secondBoot.execute("github.pull_requests.list", {})).rejects.toMatchObject({
+        code: "MCP_QUARANTINED",
+      });
+      await secondBoot.shutdown();
+
+      let spawnAttempts = 0;
+      const countingFactory = {
+        create: (definition: { id: string }) => {
+          spawnAttempts++;
+          return factory.create(definition as never);
+        },
+      };
+      const thirdBoot = createRuntime({ cwd: dir, logger: SILENT, transportFactory: countingFactory as never });
+      await thirdBoot.initialize();
+      expect(thirdBoot.lifecycle.isQuarantined("github")).toBe(true);
+      expect(thirdBoot.lifecycle.health("github")).toMatchObject({ consecutiveFailures: 2, score: 0 });
+      await expect(thirdBoot.execute("github.pull_requests.list", {})).rejects.toMatchObject({
+        code: "MCP_QUARANTINED",
+      });
+      expect(spawnAttempts).toBe(0);
+
+      const afterQuarantine = await thirdBoot.router.search("issues");
+      expect(afterQuarantine.every((match) => match.serverId !== "github")).toBe(true);
+      expect(afterQuarantine.some((match) => match.serverId === "jira")).toBe(true);
+      await thirdBoot.shutdown();
+    });
+  });
+
   it("indexes multiple servers behind one nexus endpoint without starting them at boot (spec scenario C)", async () => {
     await withTempDir(async (dir) => {
       writeProjectConfig(dir, { github: { command: "mock-gh" }, jira: { command: "mock-jira" } });
