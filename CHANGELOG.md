@@ -7,12 +7,17 @@ minor releases.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-08-24
+
+Fixes from an independent adversarial review of 0.8.0, plus one import bug. No config changes needed.
+
 ### Fixed
 
 - **`config path` no longer prints your secrets.** The COMMAND column showed env placeholders already resolved, so an API key passed as `--api-key ${MY_TOKEN}` appeared in cleartext. It now shows `${MY_TOKEN}` as written in your config.
 - **A hung server no longer blocks Nexus for a minute.** If a downstream server started but never finished the MCP handshake, it ignored your `startupTimeoutMs` and stalled for up to 60 seconds per attempt, and quarantine never kicked in. Both now work as documented.
 - **Indexing is no longer interrupted by the idle sweeper.** A server could be shut down mid `tools/list` when `coldIdleTimeoutMs` was short, leaving it silently missing from search.
 - **`import` no longer stops at the first server you already have.** Importing a harness config that shared any server id with your existing config silently dropped every server after it.
+- **`describe_capabilities` now respects your policies.** It returned full details, including the input schema, for capabilities that search hides and execute refuses. Denied ids now come back as missing.
 
 ### Changed
 
