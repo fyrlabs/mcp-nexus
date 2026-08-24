@@ -5,7 +5,7 @@ import { withRuntime, fail } from "../context.js";
 export function registerSearch(program: Command): void {
   program
     .command("search <query...>")
-    .description("search the capability index exactly like the agent control plane does")
+    .description("search capabilities through the same adaptive router the agent control plane uses")
     .option("-l, --limit <n>", "maximum results", parsePositiveInt)
     .option("-s, --server <id>", "restrict to one server id")
     .option("--explain", "show per-signal scores", false)
@@ -14,7 +14,7 @@ export function registerSearch(program: Command): void {
       const query = queryParts.join(" ");
       try {
         await withRuntime({ cwd: opts.cwd ?? process.cwd(), configPath: opts.config }, async (runtime) => {
-          const matches = await runtime.index.search(query, {
+          const matches = await runtime.router.search(query, {
             limit: options.limit ?? runtime.config.routing.limit,
             serverIds: options.server ? [options.server] : undefined,
           });

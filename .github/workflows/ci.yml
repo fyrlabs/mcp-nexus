@@ -29,8 +29,9 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
+      # build first: the handshake test spawns the built CLI exactly as the docs document
       - run: npm run build
+      - run: npm test
       # The tarball is the product; a green test run does not audit it.
       - run: npm pack --dry-run
       - uses: actions/upload-artifact@v4
@@ -52,5 +53,5 @@ jobs:
       - run: npm ci
       # node:sqlite, path handling and process spawning differ enough on Windows
       # that this job exists to catch that, not to duplicate the unix matrix.
-      - run: npm test
       - run: npm run build
+      - run: npm test

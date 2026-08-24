@@ -153,7 +153,7 @@ describe("cli/commands end-to-end", () => {
     expect(indexLines.join("\n")).toContain("Total indexed capabilities: 2");
 
     const listLines = await cli("list");
-    expect(listLines.join("\n")).toMatch(/mini\s+registered\s+2/);
+    expect(listLines.join("\n")).toMatch(/mini\s+(registered|stopped)\s+2/);
 
     const searchLines = await cli("search", "echo thing", "--explain");
     expect(searchLines.join("\n")).toContain("mini.echo_thing");

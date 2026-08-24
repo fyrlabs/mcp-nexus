@@ -1,5 +1,5 @@
-import type { ResolvedConfig, ResolvedServer } from "../config/loader.js";
 import { contentHash } from "../utils/hash.js";
+import type { ResolvedConfig, ResolvedServer } from "../config/loader.js";
 import type { CapabilityRepository } from "../storage/capability-repository.js";
 import type { ServerRepository } from "../storage/server-repository.js";
 import type { ConfigSource, MCPServerDefinition, ServerSummary } from "../models/types.js";
@@ -64,7 +64,7 @@ export class Registry {
     this.servers.ensureServer(
       definition.id,
       definition.name ?? definition.id,
-      configHashOf(definition),
+      "",
       "stdio",
       now,
     );

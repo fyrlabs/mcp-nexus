@@ -61,6 +61,7 @@ export interface RoutingContext {
   projectScope?: string;
   taskHint?: string;
   limit?: number;
+  serverIds?: string[];
   now?: number;
 }
 

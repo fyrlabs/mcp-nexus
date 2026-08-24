@@ -57,7 +57,6 @@ const TEMPLATE = `
     }
   },
   "routing": {
-    "strategy": "adaptive",
     "semanticSearch": false,
     "aliases": {},
     "pinnedCapabilities": [],

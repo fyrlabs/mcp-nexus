@@ -37,7 +37,7 @@ describe("config/loader", () => {
     expect(() => validateConfig({ version: 1, servers: { alpha: {} } })).toThrow(/alpha/);
     const valid = validateConfig({});
     expect(valid.version).toBe(1);
-    expect(valid.routing.strategy).toBe("adaptive");
+    expect(valid.routing.promotion).toBe("off");
     expect(valid.lifecycle.callTimeoutMs).toBe(120000);
     expect(valid.analytics.enabled).toBe(true);
   });

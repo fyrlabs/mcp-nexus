@@ -32,7 +32,6 @@ export const policiesSchema = z.object({
 });
 
 export const routingSchema = z.object({
-  strategy: z.enum(["adaptive", "lexical"]).default("adaptive"),
   semanticSearch: z.boolean().default(false),
   semantic: semanticSchema.prefault({}),
   prefetch: z.boolean().default(true),

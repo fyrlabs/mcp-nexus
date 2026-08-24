@@ -33,7 +33,6 @@
     }
   },
   "routing": {
-    "strategy": "adaptive",
     "semanticSearch": false,
     "prefetch": true,
     "limit": 8,

@@ -54,6 +54,7 @@ export const WARM_USAGE_THRESHOLD = 2;
 export class LifecycleManager {
   private readonly running = new Map<string, RunningServer>();
   private readonly pending = new Map<string, Promise<RunningServer>>();
+  private readonly inflightCalls = new Map<string, number>();
   private sweepTimer: NodeJS.Timeout | null = null;
 
   constructor(
@@ -117,7 +118,14 @@ export class LifecycleManager {
     timeoutMs = this.timeouts.callTimeoutMs,
   ): Promise<unknown> {
     const client = await this.ensureStarted(serverId);
-    return client.callTool(toolName, args, timeoutMs);
+    this.inflightCalls.set(serverId, (this.inflightCalls.get(serverId) ?? 0) + 1);
+    try {
+      return await client.callTool(toolName, args, timeoutMs);
+    } finally {
+      const current = this.inflightCalls.get(serverId) ?? 0;
+      if (current <= 1) this.inflightCalls.delete(serverId);
+      else this.inflightCalls.set(serverId, current - 1);
+    }
   }
 
   async stop(serverId: string): Promise<void> {
@@ -227,6 +235,7 @@ export class LifecycleManager {
   private async sweepIdle(): Promise<void> {
     const current = this.now();
     for (const [serverId, managed] of this.running) {
+      if ((this.inflightCalls.get(serverId) ?? 0) > 0) continue;
       const idleMs = current - managed.lastUsedAt;
       const limit = this.idleLimitFor(serverId);
       if (limit === 0 || idleMs < limit) continue;

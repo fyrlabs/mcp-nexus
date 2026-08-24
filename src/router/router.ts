@@ -45,7 +45,10 @@ export class Router {
   async search(query: string, context: RoutingContext = {}): Promise<CapabilityMatch[]> {
     const sessionId = context.sessionId ?? "default";
     const limit = context.limit ?? this.routing.limit;
-    const baseMatches = await this.index.search(query, { limit: limit * 2 });
+    const baseMatches = await this.index.search(query, {
+      limit: limit * 2,
+      serverIds: context.serverIds,
+    });
     const statsByCapability = this.analytics.getRoutingStats();
     const maxGlobalUsage = maxValue([...statsByCapability.values()].map((stat) => stat.usageCount));
     const predictions = this.predictor.predictNext(this.session(sessionId).lastCapabilityId);
@@ -56,7 +59,7 @@ export class Router {
       if (!decision.allowed) continue;
       const match = this.policies.annotate(base);
       const usageStats = statsByCapability.get(match.capabilityId);
-      const signals: UsageSignals = {
+      const signalsBase: UsageSignals = {
         usageCount: usageStats?.usageCount ?? 0,
         lastUsedAt: usageStats?.lastUsedAt ?? null,
         successRate: usageStats?.successRate ?? 0,
@@ -64,6 +67,8 @@ export class Router {
           maxGlobalUsage > 0 ? (usageStats?.usageCount ?? 0) / maxGlobalUsage : 0,
         sequenceProbability: predictions.get(match.capabilityId) ?? 0,
       };
+      const pin = this.policies.isPinned(match.capabilityId) || this.policies.isServerPinned(match.serverId);
+      const signals: UsageSignals & { pin: number } = { ...signalsBase, pin: pin ? 1 : 0 };
       ranked.push(
         this.ranker.rank(match, signals, {
           now: context.now ?? this.now(),
@@ -93,7 +98,9 @@ export class Router {
     const initial = this.index.describe(capabilityIds);
     let result = initial;
     if (initial.missing.length > 0 && (this.options.autoIndexMissing ?? true)) {
-      const candidateServerIds = [...new Set(initial.missing.map(serverPartOf))];
+      const candidateServerIds = [
+        ...new Set(initial.missing.map((id) => this.index.serverIdOf(id) ?? serverPartOf(id))),
+      ];
       try {
         await this.index.ensureIndexed({ serverIds: candidateServerIds });
         const retry = this.index.describe(initial.missing);
@@ -193,7 +200,7 @@ export class Router {
     query: string,
     context: RoutingContext = {},
   ): Promise<Array<{ serverId: string; score: number; topCapabilities: string[] }>> {
-    const matches = await this.search(query, context);
+    const matches = await this.search(query, { ...context, limit: 100 });
     const byServer = new Map<string, { score: number; topCapabilities: string[] }>();
     for (const match of matches) {
       const existing = byServer.get(match.serverId);
@@ -213,7 +220,8 @@ export class Router {
     const existing = this.index.get(capabilityId);
     if (existing) return existing;
     if ((this.options.autoIndexMissing ?? true)) {
-      await this.index.ensureIndexed({ serverIds: [serverPartOf(capabilityId)] }).catch(() => undefined);
+      const serverId = this.index.serverIdOf(capabilityId) ?? serverPartOf(capabilityId);
+      await this.index.ensureIndexed({ serverIds: [serverId] }).catch(() => undefined);
     }
     const capability = this.index.get(capabilityId);
     if (!capability) throw capabilityNotFound(capabilityId);

@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { createRequire } from "node:module";
-import { registerServe } from "./commands/serve.js";
+import { registerServe, runServe } from "./commands/serve.js";
 import { registerInit } from "./commands/init.js";
 import { registerAdd } from "./commands/add.js";
 import { registerRemove } from "./commands/remove.js";
@@ -26,6 +26,10 @@ export function buildProgram(): Command {
     .option("-c, --config <path>", "path to the nexus config file (default: ./project-mcp.json)")
     .option("--cwd <dir>", "working directory (defaults to process cwd)")
     .showSuggestionAfterError();
+
+  program.action(async () => {
+    await runServe(program);
+  });
 
   const commands = [
     registerServe,

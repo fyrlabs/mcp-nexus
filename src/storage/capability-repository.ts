@@ -87,7 +87,10 @@ export class CapabilityRepository {
   }
 
   countForServer(serverId: string): number {
-    const row = this.db.get(`SELECT COUNT(*) AS n FROM capabilities WHERE server_id = ?`, serverId);
+    const row = this.db.get(
+      `SELECT COUNT(*) AS n FROM capabilities WHERE server_id = ? AND availability != 'unavailable'`,
+      serverId,
+    );
     return Number(row?.n ?? 0);
   }
 

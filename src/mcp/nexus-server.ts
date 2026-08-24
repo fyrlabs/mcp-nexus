@@ -134,6 +134,7 @@ export interface NexusServerDeps {
 
 export function createNexusMcpServer(deps: NexusServerDeps): McpServer {
   const { router, registry, index, analytics, policies, promotion } = deps;
+  const promotedNames = new Set<string>();
   const server = new McpServer(
     { name: "mcp-nexus", version: nexusVersion() },
     {
@@ -152,6 +153,8 @@ export function createNexusMcpServer(deps: NexusServerDeps): McpServer {
       const decision = policies.evaluate(capability.capabilityId, capability.serverId, capability.metadata.risk);
       if (!decision.allowed) continue;
       const name = promotedToolName(capability.serverId, capability.toolName);
+      if (promotedNames.has(name)) continue;
+      promotedNames.add(name);
       const riskLabel = `[risk: ${capability.metadata.risk}]`;
       server.registerTool(
         name,

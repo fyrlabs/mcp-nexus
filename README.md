@@ -94,7 +94,7 @@ execute_capability   { "capabilityId": "github.review_comments.list",
 
 ## Requirements
 
-- Node.js **>= 22.5** (24 LTS recommended)
+- Node.js **>= 22.13** (24 LTS recommended; `node:sqlite` must be available unflagged)
 
 ## Documentation
 

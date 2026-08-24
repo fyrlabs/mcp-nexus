@@ -19,6 +19,7 @@ import { createLogger } from "../utils/logger.js";
 import { packageVersion } from "../utils/version.js";
 import type { NexusRuntime } from "./types.js";
 import { NullEmbeddingProvider, type EmbeddingProvider } from "../index/semantic.js";
+import { RETENTION_SWEEP_INTERVAL_MS } from "../analytics/analytics-engine.js";
 import { createEmbeddingProvider } from "../index/embedding-providers.js";
 import { EmbeddingCacheRepository } from "../storage/embedding-cache-repository.js";
 
@@ -61,6 +62,8 @@ export function createRuntime(options: RuntimeOptions = {}): NexusRuntime {
     { enabled: config.analytics.enabled, retentionDays: config.analytics.retentionDays },
   );
 
+  let retentionTimer: NodeJS.Timeout | null = null;
+
   const embeddingProvider =
     options.embeddingProvider ??
     (config.routing.semanticSearch
@@ -94,10 +97,15 @@ export function createRuntime(options: RuntimeOptions = {}): NexusRuntime {
     {
       onStarted: (serverId) => {
         capabilityIndex.markAvailable(serverId);
+        serverRepo.setStatus(serverId, "running");
         analytics.record({ type: "server.started", serverId });
       },
       onStopped: (serverId) => {
+        serverRepo.setStatus(serverId, "stopped");
         analytics.record({ type: "server.disconnected", serverId });
+      },
+      onStartFailed: (serverId) => {
+        serverRepo.setStatus(serverId, "failed");
       },
     },
     (serverId) => sumUsageForServer(analytics, capabilityRepo, serverId),
@@ -143,6 +151,16 @@ export function createRuntime(options: RuntimeOptions = {}): NexusRuntime {
     initialize: async () => {
       registry.syncAll();
       await capabilityIndex.hydrate();
+      const pruned = analytics.prune();
+      if (pruned > 0) logger.info("pruned expired analytics events", { pruned });
+      retentionTimer = setInterval(() => {
+        try {
+          analytics.prune();
+        } catch (error) {
+          logger.warn("retention sweep failed", { error: String(error) });
+        }
+      }, RETENTION_SWEEP_INTERVAL_MS);
+      retentionTimer.unref?.();
       lifecycle.startSweeper();
       for (const problem of missingEnvSummary(config)) {
         logger.warn("environment variables referenced but not set", { detail: problem });
@@ -152,6 +170,7 @@ export function createRuntime(options: RuntimeOptions = {}): NexusRuntime {
     execute: (capabilityId, args, context) => router.execute(capabilityId, args ?? {}, context ?? {}),
     shutdown: async () => {
       lifecycle.stopSweeper();
+      if (retentionTimer) clearInterval(retentionTimer);
       await lifecycle.dispose();
       database.close();
       logger.info("runtime shut down");

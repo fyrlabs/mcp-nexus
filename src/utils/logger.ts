@@ -1,3 +1,5 @@
+import { redactUnknown } from "./redact.js";
+
 export type LogLevel = "debug" | "info" | "warn" | "error" | "silent";
 
 const LEVEL_WEIGHT: Record<LogLevel, number> = {
@@ -41,7 +43,7 @@ export function createLogger(scope: string, options: LoggerOptions = {}): Logger
       scope,
       msg: message,
     };
-    if (data !== undefined) entry.data = data;
+    if (data !== undefined) entry.data = redactUnknown(data);
     try {
       stream.write(`${JSON.stringify(entry)}\n`);
     } catch {

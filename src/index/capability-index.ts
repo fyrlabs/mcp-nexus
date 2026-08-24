@@ -99,8 +99,7 @@ export class CapabilityIndex {
       if (options.serverIds && !options.serverIds.includes(definition.id)) continue;
       const record = this.serversRepo.get(definition.id);
       const stale = record?.configHash !== configHashOf(definition);
-      const empty = this.capabilitiesRepo.countForServer(definition.id) === 0;
-      if (!options.force && !stale && !empty) continue;
+      if (!options.force && !stale) continue;
       try {
         results.push(await this.indexServer(definition.id));
       } catch (error) {
@@ -131,11 +130,17 @@ export class CapabilityIndex {
     await this.mergeSemantic(candidates, expandedQuery, poolSize);
     this.mergeExactMatches(candidates, expandedQuery);
 
+    const minScore = options.minScore ?? this.routing.minScore;
     return [...candidates.entries()]
       .filter(([capabilityId]) => this.isSearchable(capabilityId, options))
       .sort((a, b) => rankOf(b[1]) - rankOf(a[1]) || a[0].localeCompare(b[0]))
       .slice(0, limit)
-      .map(([capabilityId, scores]) => this.toMatch(capabilityId, scores));
+      .map(([capabilityId, scores]) => this.toMatch(capabilityId, scores))
+      .filter((match) => match.signals.exact > 0 || match.score >= minScore);
+  }
+
+  serverIdOf(capabilityId: string): string | null {
+    return this.documents.get(capabilityId)?.serverId ?? null;
   }
 
   get(capabilityId: string): Capability | undefined {
@@ -250,6 +255,7 @@ export class CapabilityIndex {
     if (this.routing.disabledCapabilities.includes(capabilityId)) return false;
     if (this.routing.disabledServers.includes(document.serverId)) return false;
     const capability = this.capabilitiesRepo.get(capabilityId);
+    if (capability?.availability === "unavailable") return false;
     if (capability && this.routing.policies?.[capability.metadata.risk] === "deny") {
       return false;
     }

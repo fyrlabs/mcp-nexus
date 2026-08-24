@@ -41,7 +41,6 @@ See [`examples/project-mcp.json`](../examples/project-mcp.json). Shape summary:
     }
   },
   "routing": {
-    "strategy": "adaptive",
     "semanticSearch": false,
     "semantic": {
       "provider": "null",

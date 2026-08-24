@@ -58,6 +58,14 @@ export class AnalyticsRepository {
     outcome: { success: boolean; latencyMs?: number },
     now = Date.now(),
   ): void {
+    this.db.transaction(() => this.bumpRoutingInner(capabilityId, outcome, now));
+  }
+
+  private bumpRoutingInner(
+    capabilityId: string,
+    outcome: { success: boolean; latencyMs?: number },
+    now: number,
+  ): void {
     const existing = this.getRoutingStats([capabilityId]).get(capabilityId);
     if (!existing) {
       const latency = outcome.latencyMs ?? 0;

@@ -16,10 +16,14 @@ export function registerServe(program: Command): void {
     .command("serve")
     .description("run the MCP Nexus server over stdio (this is what your AI harness connects to)")
     .action(async () => {
-      const opts = program.opts<{ config?: string; cwd?: string }>();
-      const ctx: CommandContext = { cwd: opts.cwd ?? process.cwd(), configPath: opts.config };
-      await serve(ctx).catch(fail);
+      await runServe(program);
     });
+}
+
+export async function runServe(program: Command): Promise<void> {
+  const opts = program.opts<{ config?: string; cwd?: string }>();
+  const ctx: CommandContext = { cwd: opts.cwd ?? process.cwd(), configPath: opts.config };
+  await serve(ctx).catch(fail);
 }
 
 function resolveLogPath(ctx: CommandContext): string | null {
