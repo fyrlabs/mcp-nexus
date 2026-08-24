@@ -120,14 +120,7 @@ export function createRuntime(options: RuntimeOptions = {}): NexusRuntime {
       },
       onHealthChanged: (serverId, health) => {
         serverRepo.setHealth(serverId, health);
-        if (health.quarantined) {
-          capabilityIndex.markUnavailable(serverId);
-          logger.warn("downstream server quarantined", {
-            serverId,
-            consecutiveFailures: health.consecutiveFailures,
-            retryInMs: Math.max(0, (health.quarantinedUntil ?? 0) - Date.now()),
-          });
-        }
+        if (health.quarantined) capabilityIndex.markUnavailable(serverId);
       },
     },
     (serverId) => sumUsageForServer(analytics, capabilityRepo, serverId),
