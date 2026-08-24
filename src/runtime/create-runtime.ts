@@ -72,12 +72,17 @@ export function createRuntime(options: RuntimeOptions = {}): NexusRuntime {
   const embeddingCache = new EmbeddingCacheRepository(database);
   const semanticCacheAdapter = {
     loadAll: () => embeddingCache.loadAll(embeddingProvider.name, embeddingProvider.model ?? ""),
-    store: (entries: Map<string, Float32Array>) =>
+    store: (entries: Map<string, { vector: Float32Array; contentHash: string }>) =>
       embeddingCache.store(
         new Map(
-          [...entries].map(([id, vector]) => [
+          [...entries].map(([id, entry]) => [
             id,
-            { provider: embeddingProvider.name, model: embeddingProvider.model ?? "", vector },
+            {
+              provider: embeddingProvider.name,
+              model: embeddingProvider.model ?? "",
+              contentHash: entry.contentHash,
+              vector: entry.vector,
+            },
           ]),
         ),
       ),

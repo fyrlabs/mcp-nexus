@@ -99,7 +99,7 @@ export class Router {
     let result = initial;
     if (initial.missing.length > 0 && (this.options.autoIndexMissing ?? true)) {
       const candidateServerIds = [
-        ...new Set(initial.missing.map((id) => this.index.serverIdOf(id) ?? serverPartOf(id))),
+        ...new Set(initial.missing.map((id) => this.resolveServerId(id))),
       ];
       try {
         await this.index.ensureIndexed({ serverIds: candidateServerIds });
@@ -176,6 +176,7 @@ export class Router {
       });
       this.predictor.recordTransition(state.lastCapabilityId, capabilityId);
       state.lastCapabilityId = capabilityId;
+      this.prefetchLikelyNext(state.lastCapabilityId);
       return result;
     } catch (error) {
       const latencyMs = this.now() - startedAt;
@@ -216,12 +217,29 @@ export class Router {
       .sort((a, b) => b.score - a.score || a.serverId.localeCompare(b.serverId));
   }
 
+  private resolveServerId(capabilityId: string): string {
+    return (
+      this.index.serverIdOf(capabilityId) ??
+      this.index.configuredServerIdFor(capabilityId) ??
+      serverPartOf(capabilityId)
+    );
+  }
+
+  private prefetchLikelyNext(lastCapabilityId: string | null): void {
+    if (!this.routing.prefetch || !lastCapabilityId) return;
+    const predictions = this.predictor.predictNext(lastCapabilityId);
+    const top = [...predictions.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (!top || top[1] < PREFETCH_PROBABILITY_THRESHOLD) return;
+    const serverId = this.resolveServerId(top[0]);
+    if (!serverId) return;
+    void this.lifecycle.ensureStarted(serverId).catch(() => undefined);
+  }
+
   private async resolveCapability(capabilityId: string): Promise<Capability> {
     const existing = this.index.get(capabilityId);
     if (existing) return existing;
     if ((this.options.autoIndexMissing ?? true)) {
-      const serverId = this.index.serverIdOf(capabilityId) ?? serverPartOf(capabilityId);
-      await this.index.ensureIndexed({ serverIds: [serverId] }).catch(() => undefined);
+      await this.index.ensureIndexed({ serverIds: [this.resolveServerId(capabilityId)] }).catch(() => undefined);
     }
     const capability = this.index.get(capabilityId);
     if (!capability) throw capabilityNotFound(capabilityId);
@@ -255,6 +273,8 @@ function toExecutionError(capability: Capability, error: unknown): NexusError {
     cause: error,
   });
 }
+
+const PREFETCH_PROBABILITY_THRESHOLD = 0.5;
 
 function serverPartOf(capabilityId: string): string {
   return capabilityId.split(".")[0] ?? capabilityId;

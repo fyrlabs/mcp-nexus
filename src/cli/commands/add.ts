@@ -67,6 +67,10 @@ export function registerAdd(program: Command): void {
         writeConfigFile(configPath, next);
         console.log(`Added "${name}": ${command} ${args.join(" ")}`.trimEnd());
         console.log(`Config: ${configPath}`);
+        if (env && hasLiteralSecrets(env)) {
+          console.log("Warning: this config stores secret-looking values in plaintext.");
+          console.log("Prefer environment references instead: -e API_TOKEN='${API_TOKEN}'.");
+        }
         if (env && hasUnresolvedPlaceholders(env)) {
           console.log("Note: some referenced environment variables are not set in this shell.");
         }
@@ -87,6 +91,12 @@ function parseEnvPairs(pairs: string[]): Record<string, string> | undefined {
 
 function hasUnresolvedPlaceholders(env: Record<string, string>): boolean {
   return Object.entries(env).some(([key, value]) => key in process.env === false && /\$\{[A-Za-z_]/.test(value));
+}
+
+const SECRET_KEY_PATTERN = /(token|secret|password|passwd|api[_-]?key|authorization|credential)/i;
+
+function hasLiteralSecrets(env: Record<string, string>): boolean {
+  return Object.entries(env).some(([key, value]) => SECRET_KEY_PATTERN.test(key) && !/\$\{[A-Za-z_]/.test(value));
 }
 
 function collectRepeated(value: string, previous: string[] = []): string[] {

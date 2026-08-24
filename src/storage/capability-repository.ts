@@ -15,7 +15,11 @@ export class CapabilityRepository {
       for (const row of existingRows) {
         const id = String(row.capability_id);
         if (!desired.has(id)) {
-          this.db.run(`DELETE FROM capabilities WHERE capability_id = ?`, id);
+          this.db.run(
+            `UPDATE capabilities SET availability = 'unavailable', updated_at = ? WHERE capability_id = ?`,
+            now,
+            id,
+          );
         }
       }
       for (const capability of capabilities) {

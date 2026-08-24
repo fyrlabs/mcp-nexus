@@ -14,7 +14,14 @@ import { BM25Index, type LexicalDocument } from "./bm25.js";
 import { deriveCapabilityId, withCollisionSuffix } from "./capability-id.js";
 import { classifyRisk, deriveKeywords, humanizeToolName } from "./risk.js";
 import { expandAliases, normalizeQuery } from "./text.js";
-import { NullEmbeddingProvider, SemanticIndex, type EmbeddingProvider } from "./semantic.js";
+import {
+  NullEmbeddingProvider,
+  SemanticIndex,
+  type EmbeddingProvider,
+  type SemanticCacheEntry,
+} from "./semantic.js";
+
+export const SEMANTIC_COOLDOWN_MS = 60_000;
 import { configHashOf } from "../registry/registry.js";
 import type { Logger } from "../utils/logger.js";
 
@@ -43,8 +50,8 @@ const SEMANTIC_RANK = 100;
 const SEARCH_POOL_MULTIPLIER = 4;
 
 export interface SemanticCacheAdapter {
-  loadAll(): Map<string, Float32Array>;
-  store(entries: Map<string, Float32Array>): void;
+  loadAll(): Map<string, SemanticCacheEntry>;
+  store(entries: Map<string, SemanticCacheEntry>): void;
 }
 
 export class CapabilityIndex {
@@ -64,7 +71,14 @@ export class CapabilityIndex {
     private readonly now: () => number = Date.now,
     semanticCache?: SemanticCacheAdapter,
   ) {
-    this.semantic = new SemanticIndex(embeddingProvider, semanticCache);
+    this.semantic = new SemanticIndex(embeddingProvider, semanticCache, {
+      onCircuitOpen: () => {
+        logger.warn("semantic provider failing repeatedly; falling back to lexical search", {
+          provider: this.semantic.providerName,
+          cooldownMs: SEMANTIC_COOLDOWN_MS,
+        });
+      },
+    });
   }
 
   get semanticEnabled(): boolean {
@@ -74,7 +88,17 @@ export class CapabilityIndex {
   async indexServer(serverId: string): Promise<IndexResult> {
     const startedAt = this.now();
     this.events.onEvent?.({ type: "server.discovered", serverId });
-    const tools = await this.lifecycle.listTools(serverId);
+    let tools: Tool[];
+    try {
+      tools = await this.lifecycle.listTools(serverId);
+    } catch (error) {
+      if (error instanceof Error && /-32601|Method not found/i.test(error.message)) {
+        tools = [];
+        this.logger.info("downstream server exposes no tools capability", { serverId });
+      } else {
+        throw error;
+      }
+    }
     const capabilities = buildCapabilities(serverId, tools, this.now());
     this.capabilitiesRepo.replaceServerCapabilities(serverId, capabilities, startedAt);
     const definition = this.registryCatalog.allDefinitions().find((entry) => entry.id === serverId);
@@ -143,6 +167,15 @@ export class CapabilityIndex {
     return this.documents.get(capabilityId)?.serverId ?? null;
   }
 
+  configuredServerIdFor(capabilityId: string): string | null {
+    let best: string | null = null;
+    for (const definition of this.registryCatalog.allDefinitions()) {
+      if (!capabilityId.startsWith(`${definition.id}.`)) continue;
+      if (best === null || definition.id.length > best.length) best = definition.id;
+    }
+    return best;
+  }
+
   get(capabilityId: string): Capability | undefined {
     return this.capabilitiesRepo.get(capabilityId);
   }
@@ -194,10 +227,8 @@ export class CapabilityIndex {
     if (!this.semantic.enabled) return;
     this.semantic.clear();
     await this.semantic.hydrateFromCache();
-    const missing = allCapabilities.filter((capability) => !this.semantic.has(capability.capabilityId));
-    if (missing.length === 0) return;
     const stored = await this.semantic.indexTexts(
-      missing.map((capability) => ({
+      allCapabilities.map((capability) => ({
         id: capability.capabilityId,
         text: `${capability.title}. ${capability.description}. ${capability.metadata.keywords.join(" ")}`,
       })),

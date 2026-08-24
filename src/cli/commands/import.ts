@@ -58,6 +58,10 @@ export function registerImport(program: Command): void {
         });
         writeConfigFile(targetPath, next);
         console.log(`Imported ${added} server(s) from ${sourcePath} into ${targetPath}`);
+        if (hasLiteralSecrets(imported)) {
+          console.log("Warning: imported entries contain literal values for secret-looking env keys.");
+          console.log("Consider replacing them with ${VAR} references in the config.");
+        }
         if (skipped > 0) {
           console.log(`Skipped ${skipped} existing entr(y/ies). Use --force to overwrite.`);
         }
@@ -96,6 +100,20 @@ function normalizeDefinition(value: unknown): Record<string, unknown> {
     throw new Error("Imported server definitions must include a string command");
   }
   return output;
+}
+
+const SECRET_KEY_PATTERN = /(token|secret|password|passwd|api[_-]?key|authorization|credential)/i;
+
+function hasLiteralSecrets(servers: Record<string, unknown>): boolean {
+  for (const definition of Object.values(servers)) {
+    if (!isRecord(definition) || !isRecord(definition.env)) continue;
+    for (const [key, value] of Object.entries(definition.env)) {
+      if (typeof value === "string" && SECRET_KEY_PATTERN.test(key) && !/\$\{[A-Za-z_]/.test(value)) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -1,3 +1,4 @@
+import { contentHash } from "../utils/hash.js";
 
 export interface EmbeddingProvider {
   readonly name: string;
@@ -35,21 +36,53 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-interface SemanticCache {
-  loadAll(): Map<string, Float32Array>;
-  store(entries: Map<string, Float32Array>): void;
+export interface SemanticCacheEntry {
+  vector: Float32Array;
+  contentHash: string;
 }
+
+export interface SemanticCache {
+  loadAll(): Map<string, SemanticCacheEntry>;
+  store(entries: Map<string, SemanticCacheEntry>): void;
+}
+
+export interface SemanticIndexOptions {
+  cooldownMs?: number;
+  failureThreshold?: number;
+  now?: () => number;
+  onCircuitOpen?: () => void;
+}
+
+const DEFAULT_COOLDOWN_MS = 60_000;
+const DEFAULT_FAILURE_THRESHOLD = 2;
 
 export class SemanticIndex {
   private readonly vectors = new Map<string, number[]>();
+  private readonly hashes = new Map<string, string>();
+  private readonly cooldownMs: number;
+  private readonly failureThreshold: number;
+  private readonly now: () => number;
+  private readonly onCircuitOpen?: () => void;
+  private failures = 0;
+  private openUntil = 0;
 
   constructor(
     private readonly provider: EmbeddingProvider,
     private readonly cache?: SemanticCache,
-  ) {}
+    options: SemanticIndexOptions = {},
+  ) {
+    this.cooldownMs = options.cooldownMs ?? DEFAULT_COOLDOWN_MS;
+    this.failureThreshold = options.failureThreshold ?? DEFAULT_FAILURE_THRESHOLD;
+    this.now = options.now ?? Date.now;
+    this.onCircuitOpen = options.onCircuitOpen;
+  }
 
   get enabled(): boolean {
     return this.provider.active;
+  }
+
+  get circuitOpen(): boolean {
+    return this.now() < this.openUntil;
   }
 
   get providerName(): string {
@@ -71,8 +104,9 @@ export class SemanticIndex {
   async hydrateFromCache(): Promise<number> {
     if (!this.cache) return 0;
     const cached = this.cache.loadAll();
-    for (const [id, vector] of cached) {
-      this.vectors.set(id, [...vector]);
+    for (const [id, entry] of cached) {
+      this.vectors.set(id, [...entry.vector]);
+      this.hashes.set(id, entry.contentHash);
     }
     return cached.size;
   }
@@ -86,22 +120,25 @@ export class SemanticIndex {
     }
     if (!vector) return false;
     this.vectors.set(id, vector);
-    this.persist([[id, vector]]);
+    this.persist([[id, vector, contentHash(text)]]);
     return true;
   }
 
   async indexTexts(entries: Array<{ id: string; text: string }>): Promise<number> {
     if (entries.length === 0) return 0;
-    const missing = entries.filter((entry) => !this.vectors.has(entry.id));
-    if (missing.length === 0) return 0;
+    const stale = entries.filter((entry) => {
+      const hash = contentHash(entry.text);
+      return !this.vectors.has(entry.id) || this.hashes.get(entry.id) !== hash;
+    });
+    if (stale.length === 0) return 0;
 
     let embedded: (number[] | null)[];
     try {
       if (this.provider.embedBatch) {
-        embedded = await this.provider.embedBatch(missing.map((entry) => entry.text));
+        embedded = await this.provider.embedBatch(stale.map((entry) => entry.text));
       } else {
         embedded = [];
-        for (const entry of missing) {
+        for (const entry of stale) {
           embedded.push(await this.provider.embed(entry.text));
         }
       }
@@ -109,45 +146,56 @@ export class SemanticIndex {
       return 0;
     }
 
-    const persisted: Array<[string, number[]]> = [];
+    const persisted: Array<[string, number[], string]> = [];
     let stored = 0;
-    for (let i = 0; i < missing.length; i++) {
+    for (let i = 0; i < stale.length; i++) {
       const vector = embedded[i];
-      const id = missing[i]?.id;
-      if (!id || !vector) continue;
-      this.vectors.set(id, vector);
-      persisted.push([id, vector]);
+      const target = stale[i];
+      if (!target || !vector) continue;
+      const hash = contentHash(target.text);
+      this.vectors.set(target.id, vector);
+      this.hashes.set(target.id, hash);
+      persisted.push([target.id, vector, hash] as [string, number[], string]);
       stored++;
     }
     this.persist(persisted);
     return stored;
   }
 
-  private persist(entries: Array<[string, number[]]>): void {
+  private persist(entries: Array<[string, number[], string]>): void {
     if (!this.cache || entries.length === 0) return;
-    const asFloat32 = new Map<string, Float32Array>();
-    for (const [id, vector] of entries) {
-      asFloat32.set(id, new Float32Array(vector));
+    const payload = new Map<string, SemanticCacheEntry>();
+    for (const [id, vector, hash] of entries) {
+      payload.set(id, { vector: new Float32Array(vector), contentHash: hash });
     }
-    this.cache.store(asFloat32);
+    this.cache.store(payload);
   }
 
   remove(id: string): void {
     this.vectors.delete(id);
+    this.hashes.delete(id);
   }
 
   clear(): void {
     this.vectors.clear();
+    this.hashes.clear();
   }
 
   async search(query: string, limit: number): Promise<Array<{ id: string; score: number }>> {
     if (!this.enabled || this.vectors.size === 0) return [];
+    if (this.circuitOpen) return [];
     let queryVector: number[] | null;
     try {
       queryVector = await this.provider.embed(query);
     } catch {
+      this.failures++;
+      if (this.failures >= this.failureThreshold && !this.circuitOpen) {
+        this.openUntil = this.now() + this.cooldownMs;
+        this.onCircuitOpen?.();
+      }
       return [];
     }
+    this.failures = 0;
     if (!queryVector) return [];
     const scored = [...this.vectors.entries()].map(([id, vector]) => ({
       id,

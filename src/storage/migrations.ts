@@ -97,4 +97,8 @@ CREATE TABLE IF NOT EXISTS capability_embeddings (
 CREATE INDEX IF NOT EXISTS idx_capability_embeddings_provider ON capability_embeddings(provider, model);
 `,
   },
+  {
+    version: 3,
+    up: "ALTER TABLE capability_embeddings ADD COLUMN content_hash TEXT NOT NULL DEFAULT '';",
+  },
 ];

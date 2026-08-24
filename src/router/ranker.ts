@@ -43,7 +43,7 @@ export class Ranker {
       globalUsage: usage.globalShare,
       successRate: usage.successRate,
       sequence: clamp01(usage.sequenceProbability),
-      pin: match.signals.pin,
+      pin: usage.pin ?? match.signals.pin,
     };
     const weighted = this.weightedSum(signals);
     const score = signals.pin > 0 ? Math.max(weighted, PIN_FLOOR) : clamp01(weighted);
@@ -84,6 +84,7 @@ export interface UsageSignals {
   successRate: number;
   globalShare: number;
   sequenceProbability: number;
+  pin?: number;
 }
 
 export function neutralUsageSignals(): UsageSignals {
