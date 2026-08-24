@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { substituteEnvDeep } from "../../config/env.js";
 import { validateConfig, parseConfigFile, loadConfig, type ResolvedConfig } from "../../config/loader.js";
-import { dataDirFor, findProjectConfig, assertInsideRoot } from "../../config/paths.js";
+import { dataDirFor, findProjectConfig } from "../../config/paths.js";
 import { NexusError } from "../../models/errors.js";
-import { writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -148,17 +148,6 @@ describe("config/paths", () => {
   it("separates project and global data dirs", () => {
     expect(dataDirFor("/w", "project")).toContain(".mcp-nexus");
     expect(dataDirFor("/w", "global")).not.toContain("/w");
-  });
-
-  it("guards against path traversal", () => {
-    const base = mkdtempSync(join(tmpdir(), "mcp-nexus-traverse-"));
-    try {
-      expect(assertInsideRoot(base, join("child", "file.txt"), "path")).toBe(join(base, "child", "file.txt"));
-      expect(assertInsideRoot(base, ".", "path")).toBe(base);
-      expect(() => assertInsideRoot(base, join("..", "escape"), "path")).toThrow(/outside/);
-    } finally {
-      rmSync(base, { recursive: true, force: true });
-    }
   });
 });
 

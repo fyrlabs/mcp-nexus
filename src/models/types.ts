@@ -53,7 +53,6 @@ export interface SearchOptions {
   limit?: number;
   minScore?: number;
   serverIds?: string[];
-  includeBlocked?: boolean;
 }
 
 export interface RoutingContext {

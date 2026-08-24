@@ -128,20 +128,6 @@ export class AnalyticsRepository {
     return map;
   }
 
-  setPredictionScores(scores: Map<string, number>, now = Date.now()): void {
-    if (scores.size === 0) return;
-    this.db.transaction(() => {
-      for (const [capabilityId, score] of scores) {
-        this.db.run(
-          `UPDATE routing_stats SET prediction_score = ?, updated_at = ? WHERE capability_id = ?`,
-          score,
-          now,
-          capabilityId,
-        );
-      }
-    });
-  }
-
   recordSequence(previousCapabilityId: string, nextCapabilityId: string, now = Date.now()): void {
     this.db.transaction(() => {
       this.db.run(
