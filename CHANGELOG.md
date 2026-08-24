@@ -7,6 +7,17 @@ minor releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`config path` no longer prints your secrets.** The COMMAND column showed env placeholders already resolved, so an API key passed as `--api-key ${MY_TOKEN}` appeared in cleartext. It now shows `${MY_TOKEN}` as written in your config.
+- **A hung server no longer blocks Nexus for a minute.** If a downstream server started but never finished the MCP handshake, it ignored your `startupTimeoutMs` and stalled for up to 60 seconds per attempt, and quarantine never kicked in. Both now work as documented.
+- **Indexing is no longer interrupted by the idle sweeper.** A server could be shut down mid `tools/list` when `coldIdleTimeoutMs` was short, leaving it silently missing from search.
+- **`import` no longer stops at the first server you already have.** Importing a harness config that shared any server id with your existing config silently dropped every server after it.
+
+### Changed
+
+- Docs: risk policies are described as a workflow guardrail rather than a security boundary. Risk is guessed from each tool's own name and description, so a downstream server effectively picks its own risk class. Use `routing.disabledCapabilities` when you need a hard block.
+
 ## [0.8.0] - 2026-08-23
 
 ### Added
