@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -15,7 +15,10 @@ interface HandshakeResult {
 
 function handshakeOverStdio(argv: string[], cwd: string, timeoutMs = 15_000): Promise<HandshakeResult> {
   return new Promise((resolve) => {
-    const child = spawn(argv[0] ?? "node", argv.slice(1), { cwd, stdio: ["pipe", "pipe", "pipe"] });
+    const child: ChildProcess = spawn(argv[0] ?? "node", argv.slice(1), {
+      cwd,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
     let buffer = "";
     let stderr = "";
     let settled = false;
@@ -23,7 +26,8 @@ function handshakeOverStdio(argv: string[], cwd: string, timeoutMs = 15_000): Pr
       if (settled) return;
       settled = true;
       child.kill();
-      resolve(result);
+      child.once("exit", () => resolve(result));
+      setTimeout(() => resolve(result), 2_000).unref?.();
     };
     const timer = setTimeout(() => finish({ error: `timeout. stderr: ${stderr.slice(0, 300)}` }), timeoutMs);
 
@@ -77,7 +81,11 @@ describe("cli: documented launch path", () => {
           expect(result.serverInfo?.name).toBe("mcp-nexus");
         }
       } finally {
-        rmSync(dir, { recursive: true, force: true });
+        try {
+          rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+        } catch {
+          // Windows can hold the directory briefly while the child unwinds
+        }
       }
     },
     30_000,

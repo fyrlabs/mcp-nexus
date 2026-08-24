@@ -3,7 +3,7 @@ import { substituteEnvDeep } from "../../config/env.js";
 import { validateConfig, parseConfigFile, loadConfig, type ResolvedConfig } from "../../config/loader.js";
 import { dataDirFor, findProjectConfig, assertInsideRoot } from "../../config/paths.js";
 import { NexusError } from "../../models/errors.js";
-import { writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -151,8 +151,14 @@ describe("config/paths", () => {
   });
 
   it("guards against path traversal", () => {
-    expect(assertInsideRoot("/base", "child/file.txt", "path")).toBe("/base/child/file.txt");
-    expect(() => assertInsideRoot("/base", "../escape", "path")).toThrow(/outside/);
+    const base = mkdtempSync(join(tmpdir(), "mcp-nexus-traverse-"));
+    try {
+      expect(assertInsideRoot(base, join("child", "file.txt"), "path")).toBe(join(base, "child", "file.txt"));
+      expect(assertInsideRoot(base, ".", "path")).toBe(base);
+      expect(() => assertInsideRoot(base, join("..", "escape"), "path")).toThrow(/outside/);
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
   });
 });
 

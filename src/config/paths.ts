@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 
 export const PROJECT_CONFIG_NAMES = ["project-mcp.json", "nexus.mcp.json"] as const;
 export const DATA_DIR_NAME = ".mcp-nexus";
@@ -54,7 +54,8 @@ export function logsDirFor(dataDir: string): string {
 export function assertInsideRoot(root: string, candidate: string, label: string): string {
   const resolvedCandidate = resolve(root, candidate);
   const normalizedRoot = resolve(root);
-  if (!resolvedCandidate.startsWith(normalizedRoot + "/") && resolvedCandidate !== normalizedRoot) {
+  const rel = relative(normalizedRoot, resolvedCandidate);
+  if (rel !== "" && (rel.startsWith("..") || isAbsolute(rel))) {
     throw Object.assign(new Error(`${label} "${candidate}" resolves outside of "${normalizedRoot}"`), {
       code: "PATH_TRAVERSAL",
     });
