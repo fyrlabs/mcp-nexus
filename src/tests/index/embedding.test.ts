@@ -15,12 +15,17 @@ const SILENT = createLogger("test", { level: "silent" });
 function cacheAdapter(repo: EmbeddingCacheRepository, provider: { name: string; model?: string }) {
   return {
     loadAll: () => repo.loadAll(provider.name, provider.model ?? ""),
-    store: (entries: Map<string, Float32Array>) =>
+    store: (entries: Map<string, { vector: Float32Array; contentHash: string }>) =>
       repo.store(
         new Map(
-          [...entries].map(([id, vector]) => [
+          [...entries].map(([id, entry]) => [
             id,
-            { provider: provider.name, model: provider.model ?? "", vector },
+            {
+              provider: provider.name,
+              model: provider.model ?? "",
+              contentHash: entry.contentHash,
+              vector: entry.vector,
+            },
           ]),
         ),
       ),
@@ -295,10 +300,10 @@ describe("index/capability-index with semantic provider and cache", () => {
 
     capabilities.replaceServerCapabilities("srv", [capability("srv.a.get"), capability("srv.c.list")]);
     await index["reloadFromStore"]();
-    expect(cacheRepo.count()).toBe(2);
+    expect(cacheRepo.count()).toBe(3);
     const cached = cacheRepo.loadAll("hash", "");
     expect(cached.has("srv.a.get")).toBe(true);
-    expect(cached.has("srv.b.list")).toBe(false);
+    expect(cached.has("srv.c.list")).toBe(true);
   });
 
   it("degrades silently when the provider fails during indexing", async () => {

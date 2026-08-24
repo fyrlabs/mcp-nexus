@@ -28,9 +28,9 @@ describe("storage/database", () => {
   afterEach(() => db.close());
 
   it("applies migrations once and reports schema version", () => {
-    expect(db.schemaVersion).toBe(2);
+    expect(db.schemaVersion).toBe(3);
     db.migrate();
-    expect(db.schemaVersion).toBe(2);
+    expect(db.schemaVersion).toBe(3);
   });
 
   it("supports transactions with rollback on failure", () => {
@@ -92,14 +92,16 @@ describe("storage/capability-repository", () => {
   });
   afterEach(() => db.close());
 
-  it("replaces server capabilities atomically", () => {
+  it("soft-deletes vanished tools, keeping rows unavailable for analytics", () => {
     capabilities.replaceServerCapabilities("srv", [makeCapability("srv.a.get"), makeCapability("srv.b.list")]);
     expect(capabilities.count()).toBe(2);
     expect(capabilities.countForServer("srv")).toBe(2);
 
     capabilities.replaceServerCapabilities("srv", [makeCapability("srv.c.get")]);
-    expect(capabilities.count()).toBe(1);
-    expect(capabilities.get("srv.a.get")).toBeUndefined();
+    expect(capabilities.count()).toBe(3);
+    expect(capabilities.countForServer("srv")).toBe(1);
+    const vanished = capabilities.get("srv.a.get");
+    expect(vanished?.availability).toBe("unavailable");
     expect(capabilities.getByTool("srv", "srv_c_get")).toBeDefined();
   });
 
