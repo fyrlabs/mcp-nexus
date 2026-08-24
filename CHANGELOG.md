@@ -7,7 +7,7 @@ minor releases.
 
 ## [Unreleased]
 
-## [0.8.0] - 2026-08-24
+## [0.8.0] - 2026-08-23
 
 ### Added
 
@@ -27,7 +27,7 @@ minor releases.
 - `createNexusMcpServer` now takes a `lifecycle` dependency so `nexus://status` can report quarantined servers. Only affects code embedding Nexus as a library.
 - Removed the inert `SearchOptions.includeBlocked` field (never implemented; blocked capabilities are always excluded).
 
-## [0.7.1] - 2026-08-24
+## [0.7.1] - 2026-08-23
 
 ### Fixed
 
@@ -37,7 +37,7 @@ minor releases.
   separator-agnostically, and the CLI test handshake awaits child exit before temp-dir
   cleanup. Windows CI is green.
 
-## [0.7.0] - 2026-08-24
+## [0.7.0] - 2026-08-23
 
 Hardening release from an independent adversarial code review. Every CRITICAL and HIGH
 finding is fixed; documented behavior now matches actual behavior.
