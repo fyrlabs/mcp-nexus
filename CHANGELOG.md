@@ -13,9 +13,17 @@ minor releases.
 - **Health in `status` and `doctor`.** `status` shows a HEALTH column and a quarantined count, `status --json` reports per-server health, and `doctor` fails when a server is quarantined and says when it will be retried.
 - Tune or disable it under `lifecycle`: `quarantineThreshold` (0 turns it off), `quarantineBackoffMs`, `quarantineMaxBackoffMs`.
 
+### Fixed
+
+- Downstream server output is no longer thrown away. Whatever a server prints on stderr now shows up in your harness's log next to Nexus's own output, so a server that dies at startup can actually be diagnosed.
+- `remove --config some/relative/path.json` resolved the path against the shell's directory instead of `--cwd`, like `add` already did.
+- `doctor` reported "not found on PATH" for any command containing a dot (`python3.11`, `node.exe`) even when it was on PATH.
+- `logs -n 20` read the entire log file into memory before showing the last lines; it now reads backwards in 64 KB chunks.
+
 ### Changed
 
 - `createNexusMcpServer` now takes a `lifecycle` dependency so `nexus://status` can report quarantined servers. Only affects code embedding Nexus as a library.
+- Removed the inert `SearchOptions.includeBlocked` field (never implemented; blocked capabilities are always excluded).
 
 ## [0.7.1] - 2026-08-24
 

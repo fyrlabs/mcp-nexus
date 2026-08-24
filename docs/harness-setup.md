@@ -89,6 +89,15 @@ Global installs work too: `npm i -g @fyrlabs/mcp-nexus` then `"command": "mcp-ne
 4. Ask your agent something like *"search capabilities for pull request reviews"* and watch it
    follow the discover → describe → execute flow.
 
+### When a downstream server misbehaves
+
+Downstream servers inherit Nexus's stderr, so whatever they print lands in the same place your
+harness keeps Nexus's own log (Claude Desktop: `~/Library/Logs/Claude/mcp*.log`). Nexus's own
+structured log is separate: `mcp-nexus logs -n 100`, or `-f` to follow it live.
+
+If a server keeps failing to start, Nexus quarantines it after three tries and says so in
+`status` and `doctor`; see [configuration](configuration.md#server-quarantine).
+
 ### Tips for agents
 
 Nexus ships instructions on its MCP server telling agents the intended flow. If your harness
