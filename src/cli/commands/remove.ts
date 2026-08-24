@@ -1,4 +1,5 @@
 import type { Command } from "commander";
+import { resolve } from "node:path";
 import { readConfigFile, writeConfigFile, withServers } from "../config-io.js";
 import { findProjectConfig, globalConfigPath } from "../../config/paths.js";
 import { fail } from "../context.js";
@@ -10,10 +11,10 @@ export function registerRemove(program: Command): void {
     .action(async (name: string) => {
       const opts = program.opts<{ cwd?: string; config?: string }>();
       try {
-        const baseDir = opts.cwd ?? process.cwd();
+        const baseDir = resolve(opts.cwd ?? process.cwd());
         const configPath =
           opts.config != null
-            ? opts.config
+            ? resolve(baseDir, opts.config)
             : (findProjectConfig(baseDir) ??
               (() => {
                 throw new Error(

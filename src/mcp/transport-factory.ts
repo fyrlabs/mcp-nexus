@@ -15,7 +15,7 @@ export class StdioTransportFactory implements TransportFactory {
   ) {}
 
   create(definition: MCPServerDefinition): Transport {
-    const unresolved = collectUnresolvedEnvVars(definition.env);
+    const unresolved = collectUnresolvedEnvVars(definition.env, this.parentEnv);
     if (unresolved.length > 0) {
       throw new Error(
         `Cannot start "${definition.id}": environment variables are not set: ${unresolved.join(", ")}`,
@@ -33,19 +33,19 @@ export class StdioTransportFactory implements TransportFactory {
       args: [...definition.args],
       cwd: definition.cwd,
       env,
-      stderr: "ignore",
+      stderr: "inherit",
     });
   }
 }
 
-function collectUnresolvedEnvVars(env: Record<string, string>): string[] {
+function collectUnresolvedEnvVars(env: Record<string, string>, parentEnv: NodeJS.ProcessEnv): string[] {
   const missing = new Set<string>();
   for (const value of Object.values(env)) {
     let match: RegExpExecArray | null;
     const pattern = new RegExp(UNRESOLVED_ENV_PATTERN.source, "g");
     while ((match = pattern.exec(value)) !== null) {
       const [, name, fallback] = match;
-      if (!fallback && process.env[name ?? ""] === undefined) {
+      if (!fallback && parentEnv[name ?? ""] === undefined) {
         missing.add(name ?? "");
       }
     }

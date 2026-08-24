@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
+import { closeSync, createReadStream, existsSync, fstatSync, openSync, readSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { dataDirFor, findProjectConfig, logsDirFor } from "../../config/paths.js";
 import { fail } from "../context.js";
@@ -37,9 +37,38 @@ export function registerLogs(program: Command): void {
     });
 }
 
+const TAIL_CHUNK_BYTES = 64 * 1024;
+
+function countNewlines(buffer: Buffer): number {
+  let total = 0;
+  for (let offset = buffer.indexOf(0x0a); offset !== -1; offset = buffer.indexOf(0x0a, offset + 1)) {
+    total += 1;
+  }
+  return total;
+}
+
 function readTail(path: string, count: number): string[] {
-  const all = readFileSync(path, "utf8").split("\n").filter((line) => line.length > 0);
-  return all.slice(Math.max(0, all.length - count));
+  const fd = openSync(path, "r");
+  try {
+    let position = fstatSync(fd).size;
+    const chunks: Buffer[] = [];
+    let newlines = 0;
+    while (position > 0 && newlines <= count) {
+      const length = Math.min(TAIL_CHUNK_BYTES, position);
+      position -= length;
+      const chunk = Buffer.alloc(length);
+      readSync(fd, chunk, 0, length, position);
+      chunks.unshift(chunk);
+      newlines += countNewlines(chunk);
+    }
+    const lines = Buffer.concat(chunks)
+      .toString("utf8")
+      .split("\n")
+      .filter((line) => line.length > 0);
+    return lines.slice(Math.max(0, lines.length - count));
+  } finally {
+    closeSync(fd);
+  }
 }
 
 async function followFile(path: string): Promise<void> {

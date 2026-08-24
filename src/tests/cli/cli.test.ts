@@ -187,6 +187,17 @@ describe("cli/commands end-to-end", () => {
     expect(logsBefore.join("\n")).toContain("No log file at");
   });
 
+  it("remove resolves a relative --config against --cwd", async () => {
+    mkdirSync(join(workDir, "nested"), { recursive: true });
+    const nested = join(workDir, "nested", "project-mcp.json");
+    writeFileSync(nested, JSON.stringify({ version: 1, servers: { mini: { command: "node", args: [MINI_SERVER] } } }));
+
+    const lines = await cli("remove", "mini", "--config", join("nested", "project-mcp.json"));
+    expect(lines.join("\n")).toContain('Removed "mini"');
+    const config = JSON.parse(readFileSync(nested, "utf8")) as { servers?: Record<string, unknown> };
+    expect(config.servers).toEqual({});
+  });
+
   it("logs tails the runtime log once it exists", async () => {
     writeFileSync(join(workDir, "project-mcp.json"), JSON.stringify({ version: 1, servers: {} }));
     const logsDir = join(workDir, ".mcp-nexus", "logs");
@@ -195,6 +206,18 @@ describe("cli/commands end-to-end", () => {
 
     const lines = await cli("logs", "-n", "5");
     expect(lines.join("\n")).toContain("hello from log");
+  });
+
+  it("logs tails a file larger than one read chunk", async () => {
+    writeFileSync(join(workDir, "project-mcp.json"), JSON.stringify({ version: 1, servers: {} }));
+    const logsDir = join(workDir, ".mcp-nexus", "logs");
+    mkdirSync(logsDir, { recursive: true });
+    const filler = Array.from({ length: 4000 }, (_, index) => `{"level":"info","msg":"filler ${index}","pad":"${"x".repeat(60)}"}`);
+    const tail = ['{"level":"info","msg":"third from last"}', '{"level":"info","msg":"second from last with ünïcode bytes"}', '{"level":"info","msg":"last line"}'];
+    writeFileSync(join(logsDir, "runtime.log"), [...filler, ...tail].join("\n") + "\n");
+
+    const lines = await cli("logs", "-n", "3");
+    expect(lines).toEqual(tail);
   });
 
   it("analytics reset clears learned state with --yes", async () => {

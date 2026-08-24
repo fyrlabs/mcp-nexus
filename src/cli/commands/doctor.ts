@@ -88,7 +88,7 @@ export function registerDoctor(program: Command): void {
 }
 
 function isExecutable(command: string): boolean {
-  if (command.includes("/") || command.includes("\\") || command.includes(".")) {
+  if (command.includes("/") || command.includes("\\")) {
     return isFileExecutable(command);
   }
   return whichSync(command) !== null;

@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { EMPTY_CONFIG, readConfigFile, withServers, writeConfigFile } from "../config-io.js";
 import { findProjectConfig } from "../../config/paths.js";
@@ -8,15 +8,15 @@ import { fail } from "../context.js";
 
 const BUILTIN_SOURCES: Record<string, () => string> = {
   claude: () =>
-    joinPath(
+    join(
       homedir(),
       "Library",
       "Application Support",
       "Claude",
       "claude_desktop_config.json",
     ),
-  "claude-code": () => joinPath(homedir(), ".claude.json"),
-  cursor: () => joinPath(homedir(), ".cursor", "mcp.json"),
+  "claude-code": () => join(homedir(), ".claude.json"),
+  cursor: () => join(homedir(), ".cursor", "mcp.json"),
 };
 
 export function registerImport(program: Command): void {
@@ -118,8 +118,4 @@ function hasLiteralSecrets(servers: Record<string, unknown>): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function joinPath(...parts: string[]): string {
-  return parts.reduce((current, part) => `${current.replace(/[/\\]+$/, "")}/${part}`);
 }
