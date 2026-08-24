@@ -5,6 +5,36 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 follows [Semantic Versioning](https://semver.org/) — pre-1.0, so breaking changes may land in
 minor releases.
 
+## [0.7.0] - 2026-08-24
+
+Hardening release from an independent adversarial code review. Every CRITICAL and HIGH
+finding is fixed; documented behavior now matches actual behavior.
+
+### Fixed
+
+- **Documented launch path worked nowhere**: bare `mcp-nexus` (the exact argv every doc and
+  `init` prints) printed a help menu and exited. It now serves on stdio; a protocol handshake
+  test spawns the documented argv end-to-end.
+- **Pins were dead code**: `pinnedCapabilities`/`pinnedServers` now feed the pin signal and
+  the 0.97 floor; the inert `routing.strategy` knob was removed instead.
+- **Idle sweeper could sever calls**: in-flight calls now block idle sweeping, so
+  `coldIdleTimeoutMs` can safely be shorter than `callTimeoutMs`.
+- **Retention pruning was a placebo**: scheduled at boot and daily; `bumpRouting` runs in a
+  transaction so concurrent harness sessions no longer drop usage counts.
+- **Embedding cache never invalidated**: entries are keyed by content hash (migration v3);
+  changed tool descriptions re-embed, unchanged ones never do.
+- **Dead embedding endpoint cost a 20s timeout per query**: a circuit breaker (2 failures ->
+  60s open, warning logged once) caps outage cost; queries fall back to lexical immediately.
+- Dot-containing server ids resolve via longest-prefix matching (lazy reindexing worked only
+  for single-segment ids); transient tool flaps soft-delete capabilities (`unavailable`)
+  instead of hard-deleting, preserving learned analytics; zero-tool servers stop respawning
+  every boot; `routing.prefetch` now prewarms the predicted next capability's server
+  connection (connection warm-up only, never execution); `minScore` filters results; server
+  status in `status`/`list` reflects reality; log data passes through secret redaction;
+  `add`/`import` warn when secrets are stored as plaintext; engines floor raised to Node
+  22.13 (`node:sqlite` unflagged); CLI `search` runs through the adaptive router for true
+  parity; promotion deduplicates registrations.
+
 ## [0.6.0] - 2026-08-23
 
 ### Added

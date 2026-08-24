@@ -83,13 +83,13 @@ execute_capability   { "capabilityId": "github.review_comments.list",
 ## Highlights
 
 - **Local-first.** No cloud service, no account, no telemetry. Delete `.mcp-nexus/` and all learned state is gone.
-- **Lazy lifecycle.** Downstream servers start only when a task needs them and stop after tiered idle timeouts (hot / warm / cold).
-- **Hybrid search.** BM25 lexical ranking over weighted fields, exact id/tool matching, alias expansion (`pr → pull request`, configurable), plus optional semantic search: point `routing.semantic` at any OpenAI-compatible embeddings endpoint (cloud, or fully-local via Ollama) — embeddings are batched, cached in SQLite, and the system falls back to lexical automatically when the endpoint is down.
-- **Risk policies and optional tool promotion.** Deny destructive capabilities outright, flag unknowns for the agent, and (opt-in, `routing.promotion: "session"`) expose discovered tools directly as `nexus__<server>__<tool>` after discovery.
+- **Lazy execution lifecycle.** After the one-time background index, servers start only when a task needs them, stop after tiered idle timeouts (hot / warm / cold), and are never stopped mid-call.
+- **Hybrid search.** BM25 lexical ranking over weighted fields, exact id/tool matching, alias expansion (`pr → pull request`, configurable), plus optional semantic search: point `routing.semantic` at any OpenAI-compatible embeddings endpoint (cloud, or fully-local via Ollama) — embeddings are batched, cached in SQLite, and the system falls back to lexical automatically when the endpoint is down (a circuit breaker caps the cost at two failed requests per outage).
+- **Risk policies and optional tool promotion.** Deny destructive capabilities outright, flag unknowns for the agent, and (opt-in, `routing.promotion: "session"`) expose discovered tools directly as `nexus__<server>__<tool>` after discovery (argument schemas are reconstructed from the downstream JSON schema; exotic keywords are simplified).
 - **Adaptive ranking with explanations.** Every result carries its signal breakdown; pinned capabilities outrank learned popularity; blocked capabilities are never suggested.
 - **Sequence prediction.** Repeated tool transitions are learned locally and used to boost likely-next capabilities — prediction never auto-executes.
 - **Zero native dependencies.** Storage uses Node's built-in `node:sqlite`; installing this package never compiles anything.
-- **Context reduction, measured.** `npm run bench` builds a synthetic ecosystem and measures the real numbers: at 2,000 capabilities the full downstream schema payload is ~130k tokens versus ~540 tokens for the Nexus control plane (≈99.6% estimated reduction), with search p95 at 0.05ms against the spec's 50ms budget.
+- **Context reduction, measured.** `npm run bench` builds a synthetic ecosystem and measures the real numbers: at 2,000 capabilities the full downstream schema payload is ~130k tokens versus ~540 tokens for the Nexus control plane (≈99.6% estimated reduction), with index-level search p95 at 0.05ms against the spec's 50ms budget (full router path adds policy and stats lookups).
 - **Harness-agnostic.** Anything that speaks MCP stdio can sit in front of Nexus.
 
 ## Requirements
