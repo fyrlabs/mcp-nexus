@@ -288,7 +288,7 @@ export class LifecycleManager {
       return managed;
     } catch (error) {
       this.running.delete(serverId);
-      await managed.client.close().catch(() => undefined);
+      void managed.client.close().catch(() => undefined);
       const nexusError = toLifecycleError(serverId, error);
       managed.status = "failed";
       this.recordFailure(serverId, nexusError.code);

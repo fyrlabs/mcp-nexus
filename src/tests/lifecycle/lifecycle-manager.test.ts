@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { LifecycleManager, HOT_USAGE_THRESHOLD, WARM_USAGE_THRESHOLD, type LifecycleTimeouts } from "../../lifecycle/lifecycle-manager.js";
 import { createMockTransportFactory, type MockToolSpec } from "../helpers/mock-downstream.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { MCPServerDefinition } from "../../models/types.js";
 import { createLogger } from "../../utils/logger.js";
 
@@ -205,6 +206,45 @@ describe("lifecycle/quarantine", () => {
       quarantine,
     );
   }
+
+  it("arms quarantine when a server starts but hangs the initialize handshake", async () => {
+    let attempts = 0;
+    const hangingFactory = {
+      create: (): Transport => {
+        attempts++;
+        return {
+          start: async (): Promise<void> => undefined,
+          send: async (): Promise<void> => undefined,
+          close: async (): Promise<void> => undefined,
+        } as unknown as Transport;
+      },
+    };
+    const catalog = {
+      get: (id: string) => (id === "broken" ? definition("broken") : undefined),
+      ids: () => ["broken"],
+    };
+    const manager = new LifecycleManager(
+      catalog,
+      hangingFactory as never,
+      "0.0.0-test",
+      { ...TIMEOUTS, startupTimeoutMs: 50 },
+      createLogger("test", { level: "silent" }),
+      {},
+      () => 0,
+      () => 0,
+      QUARANTINE,
+    );
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await expect(manager.ensureStarted("broken")).rejects.toMatchObject({ code: "TIMEOUT" });
+    }
+    expect(attempts).toBe(3);
+    expect(manager.isQuarantined("broken")).toBe(true);
+    expect(manager.health("broken")).toMatchObject({ consecutiveFailures: 3, lastFailureCode: "TIMEOUT" });
+    await expect(manager.ensureStarted("broken")).rejects.toMatchObject({ code: "MCP_QUARANTINED" });
+    expect(attempts).toBe(3);
+    await manager.dispose();
+  }, 5000);
 
   it("quarantines a server after the configured consecutive failures and then fails fast", async () => {
     const tick = 0;
