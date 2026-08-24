@@ -85,6 +85,8 @@ export interface CapabilityMatch {
   score: number;
   signals: ScoreSignals;
   reason: string;
+  risk: RiskLevel;
+  flags: string[];
 }
 
 export interface ExecutionContext extends RoutingContext {

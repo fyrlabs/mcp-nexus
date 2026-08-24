@@ -249,6 +249,10 @@ export class CapabilityIndex {
     if (options.serverIds && !options.serverIds.includes(document.serverId)) return false;
     if (this.routing.disabledCapabilities.includes(capabilityId)) return false;
     if (this.routing.disabledServers.includes(document.serverId)) return false;
+    const capability = this.capabilitiesRepo.get(capabilityId);
+    if (capability && this.routing.policies?.[capability.metadata.risk] === "deny") {
+      return false;
+    }
     const definition = this.registryCatalog.allDefinitions().find((entry) => entry.id === document.serverId);
     return definition ? definition.enabled : true;
   }
@@ -268,6 +272,8 @@ export class CapabilityIndex {
       title,
       description,
       score: scores.exact > 0 ? 1 : round3(blended),
+      risk: capability?.metadata.risk ?? "unknown",
+      flags: [],
       signals: {
         exact: scores.exact,
         lexical: round3(scores.lexical),

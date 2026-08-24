@@ -24,11 +24,20 @@ export const semanticSchema = z.object({
   timeoutMs: z.number().int().min(1000).max(120000).default(20_000),
 });
 
+export const policiesSchema = z.object({
+  destructive: z.enum(["allow", "deny", "flag"]).default("allow"),
+  write: z.enum(["allow", "deny", "flag"]).default("allow"),
+  read: z.enum(["allow", "deny", "flag"]).default("allow"),
+  unknown: z.enum(["allow", "deny", "flag"]).default("allow"),
+});
+
 export const routingSchema = z.object({
   strategy: z.enum(["adaptive", "lexical"]).default("adaptive"),
   semanticSearch: z.boolean().default(false),
   semantic: semanticSchema.prefault({}),
   prefetch: z.boolean().default(true),
+  promotion: z.enum(["off", "session"]).default("off"),
+  policies: policiesSchema.prefault({}),
   limit: z.number().int().min(1).max(100).default(8),
   minScore: z.number().min(0).max(1).default(0.05),
   aliases: z.record(z.string(), z.string()).default({}),
@@ -78,6 +87,8 @@ export type NexusConfig = z.output<typeof nexusConfigSchema>;
 export type ServerDefinitionInput = z.input<typeof serverDefinitionSchema>;
 export type ServerDefinition = z.output<typeof serverDefinitionSchema>;
 export type SemanticConfig = z.output<typeof semanticSchema>;
+export type PoliciesConfig = z.output<typeof policiesSchema>;
+export type PromotionMode = "off" | "session";
 export type RoutingConfig = z.output<typeof routingSchema>;
 export type LifecycleConfig = z.output<typeof lifecycleSchema>;
 export type AnalyticsConfig = z.output<typeof analyticsSchema>;

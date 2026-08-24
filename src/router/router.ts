@@ -51,9 +51,10 @@ export class Router {
     const predictions = this.predictor.predictNext(this.session(sessionId).lastCapabilityId);
 
     const ranked: CapabilityMatch[] = [];
-    for (const match of baseMatches) {
-      const decision = this.policies.evaluate(match.capabilityId, match.serverId);
+    for (const base of baseMatches) {
+      const decision = this.policies.evaluate(base.capabilityId, base.serverId, base.risk);
       if (!decision.allowed) continue;
+      const match = this.policies.annotate(base);
       const usageStats = statsByCapability.get(match.capabilityId);
       const signals: UsageSignals = {
         usageCount: usageStats?.usageCount ?? 0,
@@ -121,7 +122,7 @@ export class Router {
     const state = this.session(sessionId);
 
     const capability = await this.resolveCapability(capabilityId);
-    const decision = this.policies.evaluate(capability.capabilityId, capability.serverId);
+    const decision = this.policies.evaluate(capability.capabilityId, capability.serverId, capability.metadata.risk);
     if (!decision.allowed) {
       throw new NexusError("PERMISSION_DENIED", `Execution blocked: ${decision.reason}`, {
         details: { capabilityId, reason: decision.reason },
