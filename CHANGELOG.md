@@ -5,6 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 follows [Semantic Versioning](https://semver.org/) — pre-1.0, so breaking changes may land in
 minor releases.
 
+## [0.7.1] - 2026-08-24
+
+### Fixed
+
+- Windows: the config watcher (`index --watch`) now uses stat polling instead of `fs.watch`,
+  whose Windows backend has a process-fatal libuv assertion triggered by editor rename
+  storms and short-path directories. Also: `assertInsideRoot` compares paths
+  separator-agnostically, and the CLI test handshake awaits child exit before temp-dir
+  cleanup. Windows CI is green.
+
 ## [0.7.0] - 2026-08-24
 
 Hardening release from an independent adversarial code review. Every CRITICAL and HIGH

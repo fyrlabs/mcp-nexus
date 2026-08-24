@@ -1,7 +1,7 @@
 # SESSION HANDOFF — @fyrlabs/mcp-nexus
 
 Complete working state for a new session (human or AI) to continue with zero information
-loss. Written 2026-08-24 after the v0.7.0 release. Read top to bottom; nothing important
+loss. Written 2026-08-24 after the v0.7.1 release. Read top to bottom; nothing important
 lives outside this file, the repo itself, and the two remote systems (GitHub + npm).
 
 ---
@@ -20,8 +20,9 @@ is/isn't built (see §7).
 
 ## 2. Current state (as of this handoff)
 
-- **Version:** 0.7.0 — published on npm, `latest` dist-tag, provenance-signed.
-- **Remotes:** GitHub `fyrlabs/mcp-nexus` (public, branch `main`), pushed and green.
+- **Version:** 0.7.1 — published on npm, `latest` dist-tag, provenance-signed.
+- **Remotes:** GitHub `fyrlabs/mcp-nexus` (public, branch `main`), pushed, CI fully green
+  across all five jobs (ubuntu/macos x node 22/24 + Windows).
 - **GitHub account:** `sathvikc` (gh CLI authenticated, repo+workflow scopes).
 - **npm publish:** fully automated. `NPM_TOKEN` secret is set on the repo. Publishing a
   GitHub release triggers `.github/workflows/release.yml` → lint+typecheck+test+build →
@@ -118,6 +119,14 @@ docs/            architecture.md, configuration.md, cli.md, harness-setup.md
     C1: the documented harness argv must never regress. Guarded by
     `src/tests/cli/default-command.test.ts` (spawns built CLI, real initialize handshake).
     It requires `dist/` to exist → CI builds before testing.
+11. **Config watcher uses stat polling** (`fs.watchFile`, 250ms interval), NOT `fs.watch`.
+    libuv's Windows fs-event backend has a process-fatal C assertion (fs-event.c:72) that
+    fires on editor rename storms and 8.3 short-path directories (CI runners expose tmpdir
+    as `RUNNER~1`) — uncatchable from JS, kills the vitest worker and would kill
+    `index --watch` for real Windows users. Polling is immune, ignores sibling files
+    naturally, and works on network drives. Do not switch back to fs.watch.
+12. **`assertInsideRoot` uses `path.relative`**, not `startsWith` with a separator —
+    separator-sensitive comparison false-flags every path on Windows.
 
 ## 5. Commands (all must pass before committing anything non-trivial)
 
@@ -247,7 +256,8 @@ next few features. Remaining reviewer LOWs not yet addressed:
 - `Registry.register/remove` have no production callers (CLI edits config files directly).
 - `setPredictionScores` (analytics-repository) is never called.
 - Hand-rolled `joinPath` in import.ts.
-- Unawaited `expect(...).resolves` in runtime.test.ts:155 area (check current line).
+- Windows CI job was added in 0.6.0 and stayed red until 0.7.1 (libuv assert + separator
+  assumptions + temp-dir cleanup races). It is green now; keep it green.
 
 ## 10. Conventions (enforced by AGENTS.md — read it)
 
