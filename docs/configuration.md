@@ -166,8 +166,7 @@ better with real tool schemas after discovery.
 }
 ```
 
-- `deny` — capabilities with that risk are never suggested and never executed (same strength
-  as `disabledCapabilities`).
+- `deny` — capabilities **classified** with that risk are kept out of search results and rejected by `execute_capability` (same strength as `disabledCapabilities`). The guarantee is only as good as the classification, which is a keyword heuristic. See [what this does and does not protect against](#what-this-does-and-does-not-protect-against).
 - `allow` — normal routing.
 - `flag` — allowed, but search results carry the risk in their `flags` array and a
   `[flagged:<risk>]` reason prefix so the agent can decide explicitly.
@@ -177,10 +176,16 @@ delete/destroy/purge; `write` verbs like create/update/send; everything else `re
 
 ## Risk classification
 
-Capabilities are classified heuristically from tool names/descriptions: verbs like delete /
-destroy / purge / revoke map to `destructive`; create / update / send / deploy map to `write`;
-everything else is `read`. Risk is surfaced in search metadata and describe responses so agents
-can apply their own policies.
+Capabilities are classified heuristically from tool names/descriptions: verbs like delete / destroy / purge / revoke map to `destructive`; create / update / send / deploy map to `write`; everything else is `read`. Risk is surfaced in search metadata and describe responses so agents can apply their own policies.
+
+### What this does and does not protect against
+
+The classifier is a keyword regex over a string built from the tool's own name and description, both of which the downstream server supplies. That has two consequences worth stating plainly:
+
+- **It misses things.** No keyword list covers every dangerous verb. `archive_repository` ("Archive a repository") matches nothing in the destructive list, so it classifies `read` and passes a `destructive: "deny"` policy untouched.
+- **It over-matches.** `close` and `send` are write verbs, so a tool described as "list closed issues" classifies `write` and is blocked by a `write: "deny"` policy.
+
+So `routing.policies` is a guardrail against an agent doing something careless with an honestly-described tool. It is not a security boundary: a server that names and describes its own tools chooses its own risk class, whether by carelessness or on purpose. For capabilities where being wrong is expensive, name them explicitly in `routing.disabledCapabilities`, which matches on capability id and does not depend on the heuristic.
 
 ## Validation
 
