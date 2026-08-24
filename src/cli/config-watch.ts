@@ -1,5 +1,4 @@
-import { realpathSync, watch, type FSWatcher } from "node:fs";
-import { basename, dirname } from "node:path";
+import { statSync, watchFile, unwatchFile } from "node:fs";
 
 export interface ConfigWatcher {
   dispose(): void;
@@ -10,38 +9,44 @@ export function watchConfigFile(
   onChange: () => void,
   debounceMs = 300,
 ): ConfigWatcher {
-  // realpath first: libuv's Windows fs-event asserts when the watched directory
-  // contains 8.3 short-name segments (e.g. RUNNER~1), crashing the process.
-  let directory: string;
-  try {
-    directory = dirname(realpathSync(configPath));
-  } catch {
-    directory = dirname(configPath);
-  }
-  const fileName = basename(configPath);
-  let timer: NodeJS.Timeout | null = null;
+  // Stat polling instead of fs.watch: libuv's Windows fs-event backend has a
+  // process-fatal assertion (fs-event.c) triggered by editor rename storms and
+  // short-path directories, and polling is immune to both that and network
+  // drives. Latency of a few hundred milliseconds is fine for a config file.
   let disposed = false;
+  let timer: NodeJS.Timeout | null = null;
+  let lastStat = currentStat(configPath);
 
-  let watcher: FSWatcher;
-  try {
-    watcher = watch(directory, { persistent: true }, (_event, changedFile) => {
-      if (disposed) return;
-      if (changedFile !== undefined && changedFile !== fileName) return;
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        timer = null;
-        if (!disposed) onChange();
-      }, debounceMs);
-    });
-  } catch {
-    return { dispose: () => { disposed = true; } };
-  }
+  watchFile(configPath, { interval: 250 }, () => {
+    if (disposed) return;
+    const next = currentStat(configPath);
+    const changed =
+      next === null
+        ? lastStat !== null
+        : lastStat === null || next.mtimeMs !== lastStat.mtimeMs || next.size !== lastStat.size;
+    lastStat = next;
+    if (!changed) return;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      if (!disposed) onChange();
+    }, debounceMs);
+  });
 
   return {
     dispose(): void {
       disposed = true;
       if (timer) clearTimeout(timer);
-      watcher.close();
+      unwatchFile(configPath);
     },
   };
+}
+
+function currentStat(path: string): { mtimeMs: number; size: number } | null {
+  try {
+    const stats = statSync(path);
+    return { mtimeMs: stats.mtimeMs, size: stats.size };
+  } catch {
+    return null;
+  }
 }
