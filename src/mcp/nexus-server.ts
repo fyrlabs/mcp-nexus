@@ -2,9 +2,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { Router } from "../router/router.js";
+import type { PolicyEngine } from "../router/policies.js";
 import type { Registry } from "../registry/registry.js";
 import type { CapabilityIndex } from "../index/capability-index.js";
 import type { AnalyticsEngine } from "../analytics/analytics-engine.js";
+import type { Capability } from "../models/types.js";
+import type { PromotionMode } from "../config/schema.js";
 import { isNexusError } from "../models/errors.js";
 import { packageVersion as nexusVersion } from "../utils/version.js";
 
@@ -14,6 +17,8 @@ export const TOOL_NAMES = {
   executeCapability: "execute_capability",
   searchServers: "search_servers",
 } as const;
+
+export const PROMOTED_TOOL_PREFIX = "nexus__";
 
 const searchInput = {
   query: z.string().min(1).describe("Natural language or keyword query describing the capability you need"),
@@ -39,6 +44,61 @@ const executeInput = {
 const searchServersInput = {
   query: z.string().min(1).describe("Domain-level query such as 'project management'"),
 };
+
+export function promotedToolName(serverId: string, toolName: string): string {
+  const clean = (value: string) => value.replace(/[^a-zA-Z0-9_-]/g, "_");
+  return `${PROMOTED_TOOL_PREFIX}${clean(serverId)}__${clean(toolName)}`;
+}
+
+function jsonSchemaPropertyToZod(property: unknown): z.ZodType {
+  const schema = (property ?? {}) as {
+    type?: string;
+    description?: string;
+    enum?: unknown[];
+  };
+  let base: z.ZodType;
+  switch (schema.type) {
+    case "string":
+      base = typeof schema.enum === "object" && schema.enum !== null && Array.isArray(schema.enum) && schema.enum.length > 0
+        ? z.enum(schema.enum as [string, ...string[]])
+        : z.string();
+      break;
+    case "number":
+    case "integer":
+      base = z.number();
+      break;
+    case "boolean":
+      base = z.boolean();
+      break;
+    case "array":
+      base = z.array(z.unknown());
+      break;
+    case "object":
+      base = z.record(z.string(), z.unknown());
+      break;
+    default:
+      base = z.unknown();
+  }
+  if (schema.description) base = base.describe(schema.description);
+  return base;
+}
+
+function jsonSchemaToZodSchema(input: unknown): z.ZodType {
+  const schema = (input ?? {}) as {
+    properties?: Record<string, unknown>;
+    required?: string[];
+  };
+  const shape: Record<string, z.ZodType> = {};
+  for (const [name, property] of Object.entries(schema.properties ?? {})) {
+    shape[name] = jsonSchemaPropertyToZod(property).optional();
+  }
+  for (const name of schema.required ?? []) {
+    if (shape[name]) {
+      shape[name] = jsonSchemaPropertyToZod(schema.properties?.[name]);
+    }
+  }
+  return z.object(shape).passthrough();
+}
 
 function errorResult(error: unknown): {
   isError: true;
@@ -68,10 +128,12 @@ export interface NexusServerDeps {
   registry: Registry;
   index: CapabilityIndex;
   analytics: AnalyticsEngine;
+  policies: PolicyEngine;
+  promotion: PromotionMode;
 }
 
 export function createNexusMcpServer(deps: NexusServerDeps): McpServer {
-  const { router, registry, index, analytics } = deps;
+  const { router, registry, index, analytics, policies, promotion } = deps;
   const server = new McpServer(
     { name: "mcp-nexus", version: nexusVersion() },
     {
@@ -82,6 +144,47 @@ export function createNexusMcpServer(deps: NexusServerDeps): McpServer {
       ].join(" "),
     },
   );
+
+  function promote(capabilities: Capability[]): void {
+    if (promotion !== "session" || capabilities.length === 0) return;
+    let changed = false;
+    for (const capability of capabilities) {
+      const decision = policies.evaluate(capability.capabilityId, capability.serverId, capability.metadata.risk);
+      if (!decision.allowed) continue;
+      const name = promotedToolName(capability.serverId, capability.toolName);
+      const riskLabel = `[risk: ${capability.metadata.risk}]`;
+      server.registerTool(
+        name,
+        {
+          title: capability.title,
+          description: `Promoted from "${capability.serverId}" ${riskLabel}. ${capability.description}`.trim(),
+          inputSchema: jsonSchemaToZodSchema(capability.inputSchemaSummary),
+        },
+        async (rawArgs: unknown) => {
+          try {
+            const args = (rawArgs ?? {}) as Record<string, unknown>;
+            const result = (await router.execute(capability.capabilityId, args, {})) as CallToolResult;
+            if (Array.isArray(result.content)) {
+              return result.isError
+                ? { content: result.content, isError: true }
+                : { content: result.content };
+            }
+            return jsonContent({ status: "ok", result });
+          } catch (error) {
+            return errorResult(error);
+          }
+        },
+      );
+      changed = true;
+    }
+    if (changed) {
+      try {
+        server.sendToolListChanged();
+      } catch {
+        // notification is best effort; transport may be mid-negotiation
+      }
+    }
+  }
 
   server.registerTool(
     TOOL_NAMES.searchCapabilities,
@@ -112,12 +215,17 @@ export function createNexusMcpServer(deps: NexusServerDeps): McpServer {
     TOOL_NAMES.describeCapabilities,
     {
       title: "Describe capabilities",
-      description: "Return the full metadata and input schemas for the given capability IDs.",
+      description:
+        "Return the full metadata and input schemas for the given capability IDs." +
+        (promotion === "session"
+          ? " Described capabilities also become directly callable tools (namespaced nexus__<server>__<tool>) for this session."
+          : ""),
       inputSchema: describeInput,
     },
     async ({ capabilityIds }) => {
       try {
         const { found, missing } = await router.describe(capabilityIds);
+        promote(found);
         return jsonContent({
           status: missing.length === 0 ? "ok" : "partial",
           capabilities: found.map((capability) => ({
@@ -200,6 +308,7 @@ export function createNexusMcpServer(deps: NexusServerDeps): McpServer {
             servers: registry.allDefinitions().length,
             capabilitiesIndexed: index.count(),
             analyticsEnabled: analytics.enabled,
+            promotion,
             version: nexusVersion(),
           }),
         },

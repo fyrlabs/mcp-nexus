@@ -95,6 +95,8 @@ async function serve(ctx: CommandContext): Promise<void> {
     registry: runtime.registry,
     index: runtime.index,
     analytics: runtime.analytics,
+    policies: runtime.policies,
+    promotion: runtime.config.routing.promotion,
   });
 
   const shutdown = async (): Promise<void> => {
