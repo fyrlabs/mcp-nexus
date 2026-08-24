@@ -271,6 +271,25 @@ describe("cli/commands end-to-end", () => {
     expect(again.join("\n")).toContain("Skipped 1 existing");
   });
 
+  it("config path never prints resolved secrets from env placeholders", async () => {
+    writeFileSync(
+      join(workDir, "project-mcp.json"),
+      JSON.stringify({
+        version: 1,
+        servers: { vault: { command: "my-server", args: ["--api-key", "${CLI_TEST_SECRET}"] } },
+      }),
+    );
+    process.env.CLI_TEST_SECRET = "sk-live-CANARY-do-not-print";
+    try {
+      const lines = await cli("config", "path");
+      const output = lines.join("\n");
+      expect(output).not.toContain("sk-live-CANARY-do-not-print");
+      expect(output).toContain("${CLI_TEST_SECRET}");
+    } finally {
+      delete process.env.CLI_TEST_SECRET;
+    }
+  });
+
   it("import keeps importing servers listed after one that already exists", async () => {
     const source = join(workDir, "multi.json");
     writeFileSync(

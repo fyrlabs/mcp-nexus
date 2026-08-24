@@ -17,6 +17,7 @@ export interface ResolvedServer extends ServerDefinition {
   id: string;
   source: "global" | "project" | "cli";
   missingEnvVars: string[];
+  displayCommand: string;
 }
 
 export interface ResolvedConfig {
@@ -45,6 +46,15 @@ type ServerEntry = { def: Record<string, unknown>; source: ResolvedServer["sourc
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function displayCommandOf(rawDefinition: unknown): string {
+  if (!isRecord(rawDefinition)) return "";
+  const command = typeof rawDefinition.command === "string" ? rawDefinition.command : "";
+  const args = Array.isArray(rawDefinition.args)
+    ? rawDefinition.args.filter((arg): arg is string => typeof arg === "string")
+    : [];
+  return [command, ...args].join(" ").trim();
 }
 
 function deepMerge<T>(base: T, override: unknown): T {
@@ -154,6 +164,7 @@ function resolveServers(
       cwd: parsed.cwd ? toAbsolutePath(parsed.cwd, baseDir) : undefined,
       source: overrideDef ? "cli" : entry.source,
       missingEnvVars: substituted.missing,
+      displayCommand: displayCommandOf(effective),
     };
   }
 
@@ -169,6 +180,7 @@ function resolveServers(
       cwd: parsed.cwd ? toAbsolutePath(parsed.cwd, baseDir) : undefined,
       source: "cli",
       missingEnvVars: substituted.missing,
+      displayCommand: displayCommandOf(value),
     };
   }
 

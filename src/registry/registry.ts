@@ -28,6 +28,7 @@ export class Registry {
       args: [...definition.args],
       env: { ...definition.env },
       missingEnvVars: [],
+      displayCommand: definition.command,
     };
     this.config.servers[resolved.id] = resolved;
     this.syncServerRow(resolved);

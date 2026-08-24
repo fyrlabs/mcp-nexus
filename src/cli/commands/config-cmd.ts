@@ -26,7 +26,7 @@ export function registerConfig(program: Command): void {
               id,
               definition.source,
               definition.enabled ? "yes" : "no",
-              [definition.command, ...definition.args].join(" "),
+              definition.displayCommand,
             ]),
           };
           printTable(table);
