@@ -92,16 +92,21 @@ describe("review fixes: end-to-end", () => {
 
       const lifecycle = runtime.lifecycle as unknown as {
         inflightCalls: Map<string, number>;
+        running: Map<string, { lastUsedAt: number }>;
         sweepIdle(): Promise<void>;
       };
-      lifecycle.inflightCalls.set("github", 1);
-      const stopped: string[] = [];
-      const originalStop = lifecycle.sweepIdle.bind(lifecycle);
-      void originalStop;
 
-      await (runtime.lifecycle as unknown as { sweepIdle(): Promise<void> }).sweepIdle();
+      const managed = lifecycle.running.get("github");
+      if (!managed) throw new Error("expected github to be running");
+      managed.lastUsedAt = Date.now() - 86_400_000;
+
+      lifecycle.inflightCalls.set("github", 1);
+      await lifecycle.sweepIdle();
       expect(runtime.lifecycle.isRunning("github")).toBe(true);
-      expect(stopped).toEqual([]);
+
+      lifecycle.inflightCalls.delete("github");
+      await lifecycle.sweepIdle();
+      expect(runtime.lifecycle.isRunning("github")).toBe(false);
       await runtime.shutdown();
     });
   });

@@ -140,7 +140,7 @@ export class LifecycleManager {
 
   async listTools(serverId: string, timeoutMs = this.timeouts.indexTimeoutMs): Promise<Tool[]> {
     const client = await this.ensureStarted(serverId);
-    return client.listTools(timeoutMs);
+    return this.withInflight(serverId, () => client.listTools(timeoutMs));
   }
 
   async callTool(
@@ -150,9 +150,13 @@ export class LifecycleManager {
     timeoutMs = this.timeouts.callTimeoutMs,
   ): Promise<unknown> {
     const client = await this.ensureStarted(serverId);
+    return this.withInflight(serverId, () => client.callTool(toolName, args, timeoutMs));
+  }
+
+  private async withInflight<T>(serverId: string, run: () => Promise<T>): Promise<T> {
     this.inflightCalls.set(serverId, (this.inflightCalls.get(serverId) ?? 0) + 1);
     try {
-      return await client.callTool(toolName, args, timeoutMs);
+      return await run();
     } finally {
       const current = this.inflightCalls.get(serverId) ?? 0;
       if (current <= 1) this.inflightCalls.delete(serverId);
