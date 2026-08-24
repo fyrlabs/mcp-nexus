@@ -270,4 +270,27 @@ describe("cli/commands end-to-end", () => {
     const again = await cli("import", source);
     expect(again.join("\n")).toContain("Skipped 1 existing");
   });
+
+  it("import keeps importing servers listed after one that already exists", async () => {
+    const source = join(workDir, "multi.json");
+    writeFileSync(
+      source,
+      JSON.stringify({
+        mcpServers: {
+          alpha: { command: "npx", args: ["-y", "@scope/alpha"] },
+          beta: { command: "npx", args: ["-y", "@scope/beta"] },
+          gamma: { command: "npx", args: ["-y", "@scope/gamma"] },
+        },
+      }),
+    );
+    await cli("init");
+    await cli("add", "beta", "--", "npx", "-y", "@scope/beta");
+
+    const lines = await cli("import", source);
+
+    const servers = readConfigServers();
+    expect(Object.keys(servers).sort()).toEqual(["alpha", "beta", "gamma"]);
+    expect(lines.join("\n")).toContain("Imported 2 server(s)");
+    expect(lines.join("\n")).toContain("Skipped 1 existing");
+  });
 });

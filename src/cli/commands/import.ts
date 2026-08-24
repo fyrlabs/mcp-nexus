@@ -50,7 +50,7 @@ export function registerImport(program: Command): void {
             const existsAlready = isRecord(servers[id]);
             if (existsAlready && !options.force) {
               skipped++;
-              return;
+              continue;
             }
             servers[id] = normalizeDefinition(definition);
             added++;
