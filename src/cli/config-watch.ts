@@ -1,4 +1,4 @@
-import { watch, type FSWatcher } from "node:fs";
+import { realpathSync, watch, type FSWatcher } from "node:fs";
 import { basename, dirname } from "node:path";
 
 export interface ConfigWatcher {
@@ -10,7 +10,14 @@ export function watchConfigFile(
   onChange: () => void,
   debounceMs = 300,
 ): ConfigWatcher {
-  const directory = dirname(configPath);
+  // realpath first: libuv's Windows fs-event asserts when the watched directory
+  // contains 8.3 short-name segments (e.g. RUNNER~1), crashing the process.
+  let directory: string;
+  try {
+    directory = dirname(realpathSync(configPath));
+  } catch {
+    directory = dirname(configPath);
+  }
   const fileName = basename(configPath);
   let timer: NodeJS.Timeout | null = null;
   let disposed = false;
