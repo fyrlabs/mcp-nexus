@@ -9,7 +9,7 @@ stricter engineering rule wins inside this repo.
 
 - Package: `@fyrlabs/mcp-nexus` — a local-first MCP router. The product contract is
   `mcp-nexus-product-spec.md` at the repo root; treat it as the architecture reference.
-- Runtime: TypeScript ESM on Node.js `>= 22.5` (`node:sqlite`, no native deps).
+- Runtime: TypeScript ESM on Node.js `>= 22.13` (first Node line where `node:sqlite` is available unflagged; 24 LTS recommended). No native deps.
 - Do not add mandatory network dependencies, telemetry, or cloud calls.
 
 ## Commands

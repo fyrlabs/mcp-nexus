@@ -51,9 +51,9 @@ See [`examples/project-mcp.json`](../examples/project-mcp.json). Shape summary:
       "batchSize": 64,
       "timeoutMs": 20000
     },
-    "prefetch": true,
+    "prefetch": true,   // prewarm the predicted next capability's server connection after each execution (never executes tools)
     "limit": 8,
-    "minScore": 0.05,
+    "minScore": 0.05,   // results below this blended score are filtered (exact matches always pass)
     "aliases": { "gh": "github" },
     "weights": { "lexical": 0.2 },       // any subset; see docs/architecture.md
     "pinnedServers": [],
@@ -109,9 +109,10 @@ Behavior:
 - Capability texts (title, description, keywords) are embedded once at index time in batches
   and cached in SQLite (`capability_embeddings`), keyed by provider and model. Restarts
   hydrate from the cache; only new or changed tools are embedded again.
-- Query embeddings happen per search. If the endpoint is unreachable, Nexus logs a warning and
-  falls back to exact + lexical search for that query — search never fails because of the
-  semantic layer.
+- Query embeddings happen per search. If the endpoint is unreachable, a circuit breaker opens
+  after two consecutive failures (60s cooldown, one warning logged) and queries fall back to
+  exact + lexical search immediately — search never fails because of the semantic layer, and a
+  dead endpoint costs at most two slow requests per outage.
 - `dimensions` is optional for `openai`; set it to catch endpoint/model mismatches early.
 - `apiKey` supports `${VAR}` substitution like every other config string. With a local Ollama
   endpoint no key is needed.

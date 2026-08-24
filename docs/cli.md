@@ -8,9 +8,11 @@ All commands accept global flags:
 -V, --version         print version
 ```
 
-## `mcp-nexus serve`
+## `mcp-nexus serve` (the default command)
 
-Runs the MCP server over stdio. This is what your AI harness executes. Boots instantly from
+Running bare `mcp-nexus` is equivalent to `mcp-nexus serve` — this is intentional so the
+documented harness configuration (`"args": ["-y", "@fyrlabs/mcp-nexus"]`) works with no
+subcommand. Runs the MCP server over stdio. Boots instantly from
 the persisted index, refreshes stale servers in the background, starts `alwaysOn` servers
 eagerly, and stops on SIGINT/SIGTERM.
 

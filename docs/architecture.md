@@ -39,9 +39,26 @@ src/cli/commands/serve.ts ──► src/mcp/nexus-server.ts (control plane: 4 to
 ## Indexing lifecycle
 
 1. On boot, persisted capabilities are **hydrated** into in-memory BM25/semantic indexes — no server is started.
-2. Background indexing (`startIndexing`) starts only servers that are new or whose config hash changed since their last successful index.
-3. The config hash is recorded **after** a successful index run (`servers.set_config_hash`), so restarts detect stale definitions reliably.
-4. Search always works from the persisted index even while every downstream server is stopped.
+2. Background indexing (`startIndexing`) starts only servers whose config hash differs from the hash recorded at their last successful index (inserts start with an empty hash, so first boot indexes once).
+3. The config hash is recorded **after** a successful index run (`servers.set_config_hash`), so restarts detect stale definitions reliably. Servers exposing zero tools are indexed once and left alone afterwards.
+4. When a reindex finds tools missing from `listTools`, they are soft-deleted (`availability = 'unavailable'`) instead of removed — learned analytics survive downstream flaps, and unavailable capabilities are excluded from search.
+5. Search always works from the persisted index even while every downstream server is stopped.
+6. Server ids containing dots resolve via longest-prefix matching against configured ids (`configuredServerIdFor`), never by splitting on the first dot.
+
+## Execution safety
+
+- The idle sweeper skips servers with in-flight calls, so `coldIdleTimeoutMs` may safely be shorter than `callTimeoutMs`.
+- `routing.prefetch` (default on) prewarms the predicted next capability's server connection after each execution — connection start only, never tool execution.
+- `routing.policies` maps risk classifications to `allow`/`deny`/`flag`; denies are enforced at the index (search), router (execute), and promotion layers.
+- With `routing.promotion: "session"`, described capabilities become callable `nexus__<server>__<tool>` tools (passthrough zod schemas built from the downstream JSON schema, `tool_list_changed` notification, deduplicated registrations).
+
+## Analytics hygiene
+
+- Retention pruning runs at boot and daily (`analytics.retentionDays`).
+- `bumpRouting` aggregates inside a transaction, so concurrent harness sessions on one project database never drop counts.
+- Embedding vectors are cached in `capability_embeddings` keyed by provider + model + **content hash**; changed descriptions re-embed, unchanged ones never do.
+- A circuit breaker (2 consecutive provider failures → 60s open, one warning) caps the cost of a dead embedding endpoint; queries fall back to lexical immediately.
+- Structured log data passes through `redactUnknown` before hitting stderr or the log file.
 
 ## Scoring model
 

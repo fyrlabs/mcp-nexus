@@ -29,7 +29,7 @@ npm install -g @fyrlabs/mcp-nexus
 npx @fyrlabs/mcp-nexus --help
 ​```
 
-Requires Node.js 22.5 or newer.
+Requires Node.js 22.13 or newer.
 
 **Full changelog:** https://github.com/fyrlabs/mcp-nexus/blob/main/CHANGELOG.md
 ```
