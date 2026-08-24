@@ -112,6 +112,19 @@ export class Router {
         this.logger.warn("lazy indexing during describe failed", { error: String(error) });
       }
     }
+    const allowed: Capability[] = [];
+    const blocked: string[] = [];
+    for (const capability of result.found) {
+      const decision = this.policies.evaluate(
+        capability.capabilityId,
+        capability.serverId,
+        capability.metadata.risk,
+      );
+      if (decision.allowed) allowed.push(capability);
+      else blocked.push(capability.capabilityId);
+    }
+    result = { found: allowed, missing: [...result.missing, ...blocked] };
+
     for (const capability of result.found) {
       this.analytics.record({
         type: "capability.described",

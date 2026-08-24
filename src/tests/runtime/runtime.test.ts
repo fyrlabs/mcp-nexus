@@ -212,7 +212,12 @@ describe("runtime end-to-end (mock downstreams)", () => {
       });
       const results = await runtime.router.search("delete repository");
       expect(results.map((match) => match.capabilityId)).not.toContain("github.repository.delete");
-      expect(runtime.router.searchServers("pull requests")).resolves.toBeDefined();
+
+      const described = await runtime.router.describe(["github.repository.delete"]);
+      expect(described.found).toEqual([]);
+      expect(described.missing).toContain("github.repository.delete");
+
+      await expect(runtime.router.searchServers("pull requests")).resolves.toBeDefined();
       await runtime.shutdown();
     });
   });

@@ -50,7 +50,7 @@ src/cli/commands/serve.ts ──► src/mcp/nexus-server.ts (control plane: 4 to
 - The idle sweeper skips servers with in-flight calls, so `coldIdleTimeoutMs` may safely be shorter than `callTimeoutMs`.
 - Consecutive lifecycle failures (failed start, unexpected disconnect) quarantine a server for an exponential window capped at `lifecycle.quarantineMaxBackoffMs`; further starts fail fast with `MCP_QUARANTINED` and its capabilities are hidden from search. One successful start clears it. Counters live in the `servers` table, so quarantine survives a restart.
 - `routing.prefetch` (default on) prewarms the predicted next capability's server connection after each execution — connection start only, never tool execution.
-- `routing.policies` maps risk classifications to `allow`/`deny`/`flag`; denies are enforced at the index (search), router (execute), and promotion layers.
+- `routing.policies` maps risk classifications to `allow`/`deny`/`flag`; denies are enforced at the index (search), router (describe and execute), and promotion layers. Denied ids come back from describe as `missing`. Risk classification itself is a keyword heuristic over server-supplied text, so policies are a workflow guardrail rather than a security boundary (see [configuration](configuration.md#what-this-does-and-does-not-protect-against)).
 - With `routing.promotion: "session"`, described capabilities become callable `nexus__<server>__<tool>` tools (passthrough zod schemas built from the downstream JSON schema, `tool_list_changed` notification, deduplicated registrations).
 
 ## Analytics hygiene
