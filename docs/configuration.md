@@ -119,6 +119,41 @@ Behavior:
 - Only capability text is ever sent to the endpoint — never tool arguments, secrets, or
   analytics.
 
+## Tool promotion (Mode B)
+
+With `routing.promotion: "session"` (default `"off"`), every capability returned by
+`describe_capabilities` also becomes a directly callable tool for the rest of the session,
+namespaced as `nexus__<server>__<tool>`. The harness receives the downstream tool's real
+argument schema, a `tool_list_changed` notification is sent, and execution goes through the
+same router path (policies, analytics, lazy server start) as `execute_capability`. Promoted
+descriptions are prefixed with the capability's risk classification. Capabilities denied by
+policy are never promoted.
+
+Use `"off"` for the smallest possible tool surface; use `"session"` when a harness performs
+better with real tool schemas after discovery.
+
+## Risk policies
+
+`routing.policies` maps each risk classification to an action:
+
+```jsonc
+"policies": {
+  "destructive": "deny",
+  "write": "allow",
+  "read": "allow",
+  "unknown": "flag"
+}
+```
+
+- `deny` — capabilities with that risk are never suggested and never executed (same strength
+  as `disabledCapabilities`).
+- `allow` — normal routing.
+- `flag` — allowed, but search results carry the risk in their `flags` array and a
+  `[flagged:<risk>]` reason prefix so the agent can decide explicitly.
+
+Risk classifications come from the heuristic in the index (`destructive` verbs like
+delete/destroy/purge; `write` verbs like create/update/send; everything else `read`).
+
 ## Risk classification
 
 Capabilities are classified heuristically from tool names/descriptions: verbs like delete /

@@ -46,7 +46,7 @@ mcp-nexus add jira -d "Issue tracking" -t tickets \
 
 | Command | Description |
 |---|---|
-| `index [-f|--force] [-s <id>]` | Start servers as needed and (re)index capabilities. Incremental by default; `--force` rebuilds everything. |
+| `index [-f|--force] [-s <id>] [-w|--watch]` | Start servers as needed and (re)index capabilities. Incremental by default; `--force` rebuilds everything. `--watch` keeps running and re-indexes automatically whenever the config file changes. |
 | `search <query…> [-l n] [-s <id>] [--explain]` | Run the same search the agent control plane uses. `--explain` prints per-signal scores and reasons. |
 | `exec <capabilityId> [-a '<json>'] [-s <id>] [--json]` | Execute a capability once from the CLI — the same routing path the agent control plane uses. Starts the owning server on demand, records analytics, and prints text content blocks. |
 

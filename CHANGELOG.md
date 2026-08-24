@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 follows [Semantic Versioning](https://semver.org/) — pre-1.0, so breaking changes may land in
 minor releases.
 
+## [0.6.0] - 2026-08-23
+
+### Added
+
+- Dynamic tool promotion (spec Mode B), opt-in via `routing.promotion: "session"`: described capabilities become directly callable `nexus__<server>__<tool>` tools for the session, with the downstream argument schema, a `tool_list_changed` notification, risk-labeled descriptions, and full policy enforcement. Default `off` keeps the minimal surface.
+- Risk policy engine: `routing.policies` maps each risk classification (`destructive`/`write`/`read`/`unknown`) to `allow`/`deny`/`flag`. `deny` removes capabilities from search and blocks execution; `flag` annotates results with the risk so agents can decide explicitly.
+- `mcp-nexus index --watch`: keeps running and re-indexes automatically when the config file changes (debounced, survives atomic-rename editors, re-arms if the config path moves).
+- Public API: `promotedToolName`, `PROMOTED_TOOL_PREFIX`, `PolicyAction`.
+
 ## [0.5.0] - 2026-08-23
 
 ### Added

@@ -9,12 +9,18 @@ import { createLogger } from "../../utils/logger.js";
 
 const SILENT = createLogger("test", { level: "silent" });
 
-async function connectClient(runtime: NexusRuntime): Promise<Client> {
+async function connectClient(
+  runtime: NexusRuntime,
+  overrides: Partial<Parameters<typeof createNexusMcpServer>[0]> = {},
+): Promise<Client> {
   const server = createNexusMcpServer({
     router: runtime.router,
     registry: runtime.registry,
     index: runtime.index,
     analytics: runtime.analytics,
+    policies: runtime.policies,
+    promotion: "off",
+    ...overrides,
   });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   void server.connect(serverTransport);

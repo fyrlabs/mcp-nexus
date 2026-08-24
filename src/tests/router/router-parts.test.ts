@@ -25,6 +25,8 @@ function makeMatch(id: string, serverId: string, signals: Partial<CapabilityMatc
       ...signals,
     },
     reason: "base",
+    risk: "read",
+    flags: [],
   };
 }
 
