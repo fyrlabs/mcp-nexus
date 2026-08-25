@@ -23,7 +23,7 @@ eagerly, and stops on SIGINT/SIGTERM.
 | `init [--force]` | Create `project-mcp.json` in the current directory. |
 | `add <name> [parts…] -d <text> -t <tag>… -e K=V… --server-cwd <dir> --always-on -- <command> [args…]` | Add/replace a downstream server in the project config. |
 | `remove <name>` | Remove a server from the project config. |
-| `import <file\|harness> [--from claude\|claude-code\|cursor] [--force]` | Import `mcpServers` entries from an existing harness config into the project config. |
+| `import <file\|harness> [--from claude\|claude-code\|cursor] [--force]` | Import servers from an existing harness config into the project config. Reads either the `mcpServers` root key (Claude, Claude Code, Cursor) or `servers` (VS Code, and Nexus's own config format). Non-stdio entries are reported and skipped. |
 | `list [--json]` | Show configured servers with status, indexed capability counts, and source layer. |
 
 Example:

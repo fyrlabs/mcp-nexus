@@ -23,7 +23,7 @@ export function registerImport(program: Command): void {
   program
     .command("import <source>")
     .description(
-      "import mcpServers from an existing config file or a known harness (claude, claude-code, cursor)",
+      "import servers from an existing config file or a known harness (claude, claude-code, cursor)",
     )
     .option("--from <harness>", `treat <source> as a harness name (${Object.keys(BUILTIN_SOURCES).join(", ")})`)
     .option("--force", "overwrite entries that already exist in project-mcp.json", false)
@@ -33,7 +33,7 @@ export function registerImport(program: Command): void {
         const sourcePath = await resolveSource(source, options.from);
         const imported = extractMcpServers(readConfigFile(sourcePath));
         if (Object.keys(imported).length === 0) {
-          console.log(`No mcpServers found in ${sourcePath}`);
+          console.log(`No servers found in ${sourcePath} (looked for "mcpServers" and "servers")`);
           return;
         }
         const baseDir = resolve(global.cwd ?? process.cwd());
@@ -45,8 +45,13 @@ export function registerImport(program: Command): void {
 
         let added = 0;
         let skipped = 0;
+        let skippedRemote = 0;
         const next = withServers(target, (servers) => {
           for (const [id, definition] of Object.entries(imported)) {
+            if (!isStdioDefinition(definition)) {
+              skippedRemote++;
+              continue;
+            }
             const existsAlready = isRecord(servers[id]);
             if (existsAlready && !options.force) {
               skipped++;
@@ -64,6 +69,13 @@ export function registerImport(program: Command): void {
         }
         if (skipped > 0) {
           console.log(`Skipped ${skipped} existing entr(y/ies). Use --force to overwrite.`);
+        }
+        if (skippedRemote > 0) {
+          console.log(`Skipped ${skippedRemote} non-stdio entr(y/ies); Nexus routes stdio servers only.`);
+        }
+        if (hasInputPlaceholders(imported)) {
+          console.log("Warning: imported entries contain VS Code ${input:...} placeholders, which Nexus does not resolve.");
+          console.log("Replace them with ${VAR} references to your environment.");
         }
       } catch (error) {
         fail(error);
@@ -85,9 +97,17 @@ async function resolveSource(source: string, from?: string): Promise<string> {
 
 function extractMcpServers(raw: unknown): Record<string, unknown> {
   if (!isRecord(raw)) return {};
-  const servers = raw.mcpServers;
-  if (!isRecord(servers)) return {};
-  return servers;
+  for (const key of ["mcpServers", "servers"]) {
+    const servers = raw[key];
+    if (isRecord(servers)) return servers;
+  }
+  return {};
+}
+
+function isStdioDefinition(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (typeof value.type === "string" && value.type !== "stdio") return false;
+  return typeof value.command === "string";
 }
 
 function normalizeDefinition(value: unknown): Record<string, unknown> {
@@ -100,6 +120,10 @@ function normalizeDefinition(value: unknown): Record<string, unknown> {
     throw new Error("Imported server definitions must include a string command");
   }
   return output;
+}
+
+function hasInputPlaceholders(servers: Record<string, unknown>): boolean {
+  return /\$\{input:/.test(JSON.stringify(servers));
 }
 
 const SECRET_KEY_PATTERN = /(token|secret|password|passwd|api[_-]?key|authorization|credential)/i;

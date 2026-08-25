@@ -315,6 +315,29 @@ describe("cli/commands end-to-end", () => {
     }
   });
 
+  it("import reads the VS Code \"servers\" key and skips its non-stdio entries", async () => {
+    const source = join(workDir, "mcp.json");
+    writeFileSync(
+      source,
+      JSON.stringify({
+        servers: {
+          local: { type: "stdio", command: "npx", args: ["-y", "@scope/local"] },
+          remote: { type: "http", url: "https://example.com/mcp" },
+          untyped: { command: "node", args: ["server.mjs"] },
+        },
+        inputs: [{ id: "api-key", type: "promptString" }],
+      }),
+    );
+    await cli("init");
+
+    const lines = await cli("import", source);
+    const output = lines.join("\n");
+
+    expect(Object.keys(readConfigServers()).sort()).toEqual(["local", "untyped"]);
+    expect(output).toContain("Imported 2 server(s)");
+    expect(output).toContain("Skipped 1 non-stdio");
+  });
+
   it("import keeps importing servers listed after one that already exists", async () => {
     const source = join(workDir, "multi.json");
     writeFileSync(
