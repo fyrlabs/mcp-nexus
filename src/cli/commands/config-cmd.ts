@@ -4,6 +4,7 @@ import { printTable, type Table } from "./format.js";
 import { loadConfig } from "../../config/loader.js";
 import { listConfigBackups, readConfigFile, writeConfigFile } from "../config-io.js";
 import { fail } from "../context.js";
+import { NexusError } from "../../models/errors.js";
 
 export function registerConfig(program: Command): void {
   const config = program.command("config").description("inspect configuration resolution");
@@ -79,10 +80,11 @@ export function registerConfig(program: Command): void {
         const backups = listConfigBackups(target);
         const chosen = id ? backups.find((backup) => backup.id === id) : backups[0];
         if (!chosen) {
-          throw new Error(
+          throw new NexusError(
+            "CONFIG_NOT_FOUND",
             id
-              ? `No backup "${id}" for ${target}. Run "mcp-nexus config backups" to list them.`
-              : `No backups for ${target}.`,
+              ? `no backup "${id}" for ${target}; run "mcp-nexus config backups" to list them`
+              : `no backups for ${target}; one is saved automatically the next time the config changes`,
           );
         }
         writeConfigFile(target, readConfigFile(chosen.path));

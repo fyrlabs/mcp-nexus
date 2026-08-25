@@ -54,7 +54,11 @@ function backupExisting(configPath: string): void {
   if (!existsSync(configPath)) return;
   const dir = backupDirFor(configPath);
   mkdirSync(dir, { recursive: true });
-  const id = new Date().toISOString().replace(/[:.]/g, "-");
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  let id = stamp;
+  for (let attempt = 2; existsSync(join(dir, `${basename(configPath)}.${id}.json`)); attempt++) {
+    id = `${stamp}-${attempt}`;
+  }
   copyFileSync(configPath, join(dir, `${basename(configPath)}.${id}.json`));
   for (const stale of listConfigBackups(configPath).slice(BACKUP_KEEP)) {
     rmSync(stale.path, { force: true });
