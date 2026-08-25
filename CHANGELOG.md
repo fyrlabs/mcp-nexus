@@ -7,6 +7,10 @@ minor releases.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-25
+
+Config edits are now reversible, and the README is honest about how much context you save on your particular harness.
+
 ### Added
 
 - **Config changes are now undoable.** Every command that edits your config (`init`, `add`, `remove`, `import`) saves a snapshot of the previous version first, keeping the last 10. `config backups` lists them and `config restore` rolls back, defaulting to the most recent. A restore is itself snapshotted, so you can undo the undo.
