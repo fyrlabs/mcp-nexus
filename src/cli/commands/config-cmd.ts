@@ -1,6 +1,9 @@
 import type { Command } from "commander";
+import { resolve } from "node:path";
 import { printTable, type Table } from "./format.js";
 import { loadConfig } from "../../config/loader.js";
+import { listConfigBackups, readConfigFile, writeConfigFile } from "../config-io.js";
+import { fail } from "../context.js";
 
 export function registerConfig(program: Command): void {
   const config = program.command("config").description("inspect configuration resolution");
@@ -43,6 +46,59 @@ export function registerConfig(program: Command): void {
     .action(() => {
       console.log(TEMPLATE.trimStart());
     });
+
+  config
+    .command("backups")
+    .description("list saved config snapshots, newest first")
+    .action(() => {
+      const opts = program.opts<{ cwd?: string; config?: string }>();
+      try {
+        const target = targetConfigPath(opts);
+        const backups = listConfigBackups(target);
+        if (backups.length === 0) {
+          console.log(`No backups for ${target}`);
+          return;
+        }
+        console.log(`Backups for ${target}:`);
+        printTable({
+          columns: ["ID", "PATH"],
+          rows: backups.map((backup) => [backup.id, backup.path]),
+        });
+      } catch (error) {
+        fail(error);
+      }
+    });
+
+  config
+    .command("restore [id]")
+    .description("restore the config from a backup (defaults to the newest)")
+    .action((id: string | undefined) => {
+      const opts = program.opts<{ cwd?: string; config?: string }>();
+      try {
+        const target = targetConfigPath(opts);
+        const backups = listConfigBackups(target);
+        const chosen = id ? backups.find((backup) => backup.id === id) : backups[0];
+        if (!chosen) {
+          throw new Error(
+            id
+              ? `No backup "${id}" for ${target}. Run "mcp-nexus config backups" to list them.`
+              : `No backups for ${target}.`,
+          );
+        }
+        writeConfigFile(target, readConfigFile(chosen.path));
+        console.log(`Restored ${target} from backup ${chosen.id}`);
+        console.log("The config as it was before this restore was itself saved as a new backup.");
+      } catch (error) {
+        fail(error);
+      }
+    });
+}
+
+function targetConfigPath(opts: { cwd?: string; config?: string }): string {
+  const baseDir = resolve(opts.cwd ?? process.cwd());
+  if (opts.config != null) return resolve(baseDir, opts.config);
+  const resolved = loadConfig({ cwd: baseDir });
+  return resolved.paths.projectConfig ?? resolved.paths.globalConfig;
 }
 
 const TEMPLATE = `

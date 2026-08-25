@@ -1,7 +1,17 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  copyFileSync,
+  readdirSync,
+  rmSync,
+} from "node:fs";
+import { dirname, join, basename } from "node:path";
 import type { NexusConfigFile } from "../config/schema.js";
 import { NexusError } from "../models/errors.js";
+import { globalConfigPath } from "../config/paths.js";
 
 export function readConfigFile(path: string): NexusConfigFile {
   if (!existsSync(path)) {
@@ -17,9 +27,46 @@ export function readConfigFile(path: string): NexusConfigFile {
   }
 }
 
+export const BACKUP_KEEP = 10;
+
+export function backupDirFor(configPath: string): string {
+  const dir = dirname(configPath);
+  if (configPath === globalConfigPath()) return join(dir, "backups");
+  return join(dir, ".mcp-nexus", "config-backups");
+}
+
+export interface ConfigBackup {
+  id: string;
+  path: string;
+}
+
+export function listConfigBackups(configPath: string): ConfigBackup[] {
+  const dir = backupDirFor(configPath);
+  if (!existsSync(dir)) return [];
+  const prefix = `${basename(configPath)}.`;
+  return readdirSync(dir)
+    .filter((name) => name.startsWith(prefix) && name.endsWith(".json"))
+    .map((name) => ({ id: name.slice(prefix.length, -".json".length), path: join(dir, name) }))
+    .sort((a, b) => b.id.localeCompare(a.id));
+}
+
+function backupExisting(configPath: string): void {
+  if (!existsSync(configPath)) return;
+  const dir = backupDirFor(configPath);
+  mkdirSync(dir, { recursive: true });
+  const id = new Date().toISOString().replace(/[:.]/g, "-");
+  copyFileSync(configPath, join(dir, `${basename(configPath)}.${id}.json`));
+  for (const stale of listConfigBackups(configPath).slice(BACKUP_KEEP)) {
+    rmSync(stale.path, { force: true });
+  }
+}
+
 export function writeConfigFile(path: string, config: NexusConfigFile): void {
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  backupExisting(path);
+  const temp = `${path}.${process.pid}.tmp`;
+  writeFileSync(temp, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  renameSync(temp, path);
 }
 
 export const EMPTY_CONFIG: NexusConfigFile = { version: 1, servers: {} };

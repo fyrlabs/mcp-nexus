@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -269,6 +269,31 @@ describe("cli/commands end-to-end", () => {
 
     const again = await cli("import", source);
     expect(again.join("\n")).toContain("Skipped 1 existing");
+  });
+
+  it("add and remove keep timestamped backups that config restore can roll back to", async () => {
+    await cli("init");
+    await cli("add", "alpha", "--", "npx", "-y", "@scope/alpha");
+    expect(Object.keys(readConfigServers()).sort()).toEqual(["alpha"]);
+
+    await cli("add", "beta", "--", "npx", "-y", "@scope/beta");
+    expect(Object.keys(readConfigServers()).sort()).toEqual(["alpha", "beta"]);
+
+    const listed = await cli("config", "backups");
+    expect(listed.join("\n")).toContain("project-mcp.json");
+
+    const restored = await cli("config", "restore");
+    expect(restored.join("\n")).toContain("Restored");
+    expect(Object.keys(readConfigServers()).sort()).toEqual(["alpha"]);
+  });
+
+  it("writes the config atomically so a reader never sees a partial file", async () => {
+    await cli("init");
+    await cli("add", "alpha", "--", "npx", "-y", "@scope/alpha");
+    const target = join(workDir, "project-mcp.json");
+    const leftovers = readdirSync(workDir).filter((name) => name.includes(".tmp"));
+    expect(leftovers).toEqual([]);
+    expect(() => JSON.parse(readFileSync(target, "utf8"))).not.toThrow();
   });
 
   it("config path never prints resolved secrets from env placeholders", async () => {
