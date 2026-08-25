@@ -40,9 +40,25 @@ mcp-nexus add jira -d "Issue tracking" -t tickets \
 |---|---|
 | `status [--json]` | Config/data/database paths, server table with health, running and quarantined counts, index size, analytics state. |
 | `doctor` | Validate config, environment references (`${VAR}` resolution), command availability, quarantined servers; exit code 1 on failures. |
-| `config path` | Print which config files resolved and where state lives. |
+| `config path` | Print which config files resolved and where state lives. Env placeholders are shown as written, never resolved. |
 | `config template` | Print an annotated example configuration. |
+| `config backups` | List saved config snapshots, newest first. |
+| `config restore [id]` | Roll the config back to a snapshot, defaulting to the newest. |
 | `logs [-f] [-n 50]` | Tail `.mcp-nexus/logs/runtime.log`. |
+
+### Changing a config safely
+
+Every command that writes a config (`init`, `add`, `remove`, `import`) writes to a temp file and renames it into place, so a reader never sees a half-written config. Before overwriting, the previous contents are copied to a timestamped snapshot: `.mcp-nexus/config-backups/` beside a project config, or `backups/` beside the global one. The last 10 are kept.
+
+That gives you an edit, test, roll back loop:
+
+```bash
+mcp-nexus add github -- npx -y @modelcontextprotocol/server-github   # edit (previous config is snapshotted)
+mcp-nexus doctor                                                     # test: exits 1 if anything fails to resolve
+mcp-nexus config restore                                             # roll back if it did
+```
+
+To check a config before adopting it at all, point `doctor` straight at the candidate file: `mcp-nexus doctor --config ./candidate.json`. It validates and exits non-zero without touching your current config. `config restore` snapshots the current config before overwriting, so a restore can itself be undone.
 
 ## Indexing and search
 

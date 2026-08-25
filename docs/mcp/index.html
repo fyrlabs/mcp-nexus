@@ -1,0 +1,857 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var m=location.search.match(/theme=(light|dark)/);var t=m?m[1]:localStorage.getItem("mcp-docs-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+
+<title>mcp-nexus — MCP Docs</title>
+<style>
+  :root {
+    --bg:#fafafa; --surface:#ffffff; --fg:#18181b; --muted:#71717a;
+    --border:#e4e4e7; --border-strong:#d4d4d8; --accent:#4f46e5; --accent-hover:#4338ca;
+    --accent-soft:rgba(79,70,229,.08); --topbar:rgba(255,255,255,.85);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.05); --shadow-md:0 4px 12px rgba(0,0,0,.07);
+    --green:#16a34a; --red:#dc2626; --amber:#d97706;
+    --radius-sm:6px; --radius-md:9px; --radius:12px;
+    --code-bg:#f4f4f6; --code-fg:#1c1c21; --code-border:#e4e4e7; --code-dim:#71717a;
+  }
+  :root[data-theme="dark"] {
+    --bg:#0c0d10; --surface:#141519; --fg:#ececee; --muted:#a4a4af;
+    --border:#26272e; --border-strong:#33343c; --accent:#818cf8; --accent-hover:#a5b0fc;
+    --accent-soft:rgba(129,140,248,.1); --topbar:rgba(12,13,16,.85);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.4); --shadow-md:0 4px 16px rgba(0,0,0,.5);
+    --green:#4ade80; --red:#f87171; --amber:#fbbf24;
+    --code-bg:#16181d; --code-fg:#dfe2e7; --code-border:#26272e; --code-dim:#9da3ad;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#0c0d10; --surface:#141519; --fg:#ececee; --muted:#a4a4af;
+      --border:#26272e; --border-strong:#33343c; --accent:#818cf8; --accent-hover:#a5b0fc;
+      --accent-soft:rgba(129,140,248,.1); --topbar:rgba(12,13,16,.85);
+      --shadow-sm:0 1px 2px rgba(0,0,0,.4); --shadow-md:0 4px 16px rgba(0,0,0,.5);
+      --green:#4ade80; --red:#f87171; --amber:#fbbf24;
+      --code-bg:#16181d; --code-fg:#dfe2e7; --code-border:#26272e; --code-dim:#9da3ad;
+    }
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior:auto; }
+    *, *::before, *::after { transition:none !important; animation:none !important; }
+  }
+  body {
+    margin:0; background:var(--bg); color:var(--fg); line-height:1.65;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Inter",Roboto,sans-serif;
+    font-size:15px; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  }
+  ::selection { background:var(--accent-soft); }
+  h1,h2,h3 { letter-spacing:-.02em; line-height:1.25; }
+  a { color:var(--accent); text-decoration:none; }
+  a:hover { color:var(--accent-hover); }
+  button { font-family:inherit; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
+  .skip-link {
+    position:absolute; left:-9999px; top:.5rem; z-index:200; padding:.5rem 1rem;
+    background:var(--accent); color:#fff; border-radius:var(--radius-sm); font-weight:600; font-size:.85rem;
+  }
+  .skip-link:focus { left:.5rem; color:#fff; }
+
+  /* ── Top bar ─────────────────────────────────────── */
+  .topbar {
+    position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:1rem;
+    padding:.6rem 1.25rem; border-bottom:1px solid var(--border);
+    background:var(--topbar); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+  }
+  .brand { display:flex; align-items:center; gap:.6rem; min-width:0; flex-shrink:1; }
+  .brand img { width:28px; height:28px; border-radius:var(--radius-sm); object-fit:contain; }
+  .brand-name { font-weight:650; font-size:.95rem; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pill {
+    display:inline-flex; align-items:center; font-size:.68rem; font-weight:600; letter-spacing:.02em;
+    padding:.14rem .55rem; border-radius:99px; border:1px solid var(--border-strong); color:var(--muted);
+    white-space:nowrap;
+  }
+  .searchwrap { flex:1; max-width:420px; margin-left:auto; position:relative; }
+  #search {
+    width:100%; padding:.45rem .75rem .45rem 2rem; font-size:.85rem; border-radius:var(--radius-sm);
+    border:1px solid var(--border); background:var(--surface); color:var(--fg);
+    transition:border-color .15s, box-shadow .15s;
+  }
+  #search:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  #search::placeholder { color:var(--muted); }
+  .search-key {
+    position:absolute; left:.55rem; top:50%; transform:translateY(-50%);
+    color:var(--muted); font-size:.8rem; pointer-events:none; font-family:ui-monospace,monospace;
+  }
+  .icon-btn {
+    flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;
+    width:34px; height:34px; border-radius:var(--radius-sm); border:1px solid var(--border);
+    background:var(--surface); color:var(--muted); cursor:pointer; font-size:.95rem;
+    transition:border-color .15s, color .15s;
+  }
+  .icon-btn:hover { border-color:var(--border-strong); color:var(--fg); }
+  #search-toggle { display:none; }
+  .menu-btn { display:none; }
+
+  /* ── Layout shell ────────────────────────────────── */
+  .shell { display:grid; grid-template-columns:250px minmax(0,1fr); gap:0; max-width:1240px; margin:0 auto; }
+  .sidebar {
+    position:sticky; top:53px; align-self:start; height:calc(100vh - 53px); overflow-y:auto;
+    padding:1.5rem 1rem 2rem 1.25rem; border-right:1px solid var(--border);
+  }
+  main { padding:2rem 2.5rem 3rem; min-width:0; }
+  .content { max-width:800px; }
+
+  /* ── Sidebar nav ─────────────────────────────────── */
+  .sidebar-nav { font-size:.86rem; }
+  .toc-head {
+    display:flex; align-items:center; justify-content:space-between; gap:.5rem;
+    font-weight:600; color:var(--fg); padding:.35rem .6rem; border-radius:var(--radius-sm); margin-top:.25rem;
+  }
+  .toc-head:hover { background:var(--accent-soft); color:var(--accent); }
+  .toc-head.solo { margin-bottom:.1rem; }
+  .toc-head .count {
+    font-size:.66rem; font-weight:600; color:var(--muted);
+    background:var(--bg); border:1px solid var(--border); border-radius:99px; padding:0 .45rem; line-height:1.5;
+  }
+  .toc-item {
+    display:block; color:var(--muted); padding:.28rem .6rem .28rem 1.1rem;
+    border-left:2px solid transparent; margin-left:.6rem; border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .toc-group { margin-bottom:1rem; }
+  .toc-item:hover { color:var(--fg); }
+  .toc-head.active, .toc-item.active { color:var(--accent); border-left-color:var(--accent); background:var(--accent-soft); }
+  .backdrop { display:none; }
+
+  /* ── Hero / overview ─────────────────────────────── */
+  .hero { padding:0 0 2rem; margin-bottom:2rem; border-bottom:1px solid var(--border); }
+  .hero h1 { display:flex; align-items:center; gap:.7rem; font-size:clamp(1.5rem,3vw,1.9rem); margin:0 0 .5rem; font-weight:700; }
+  .hero .item-icon { width:40px; height:40px; border-radius:var(--radius-md); vertical-align:initial; margin:0; border:1px solid var(--border); background:var(--surface); }
+  .hero-pills { display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:.75rem; }
+  .hero-desc { font-size:1.02rem; color:var(--muted); max-width:62ch; margin:0 0 .4rem; }
+  .hero-stats { display:flex; align-items:center; flex-wrap:wrap; gap:.5rem; color:var(--fg); font-size:.88rem; font-weight:550; margin:0 0 .5rem; }
+  .stat-sep { color:var(--border-strong); }
+  .instructions {
+    margin-top:1rem; padding:.85rem 1.1rem; border:1px solid var(--border); border-left:3px solid var(--accent);
+    border-radius:0 var(--radius) var(--radius) 0; background:var(--surface); font-size:.92rem; color:var(--muted);
+  }
+  .instructions .label { display:block; font-size:.68rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--accent); margin-bottom:.2rem; }
+
+  /* ── Sections & cards ────────────────────────────── */
+  section[id] { scroll-margin-top:76px; }
+  .card[id] { scroll-margin-top:76px; }
+  h2 { font-size:1.25rem; font-weight:700; margin:3rem 0 1.1rem; }
+  h2:first-child { margin-top:0; }
+  .section-hint { color:var(--muted); font-size:.88rem; margin:0 0 1rem; }
+  .count-inline { color:var(--muted); font-weight:500; font-size:.85em; margin-left:.3rem; }
+  .card {
+    border:1px solid var(--border); border-radius:var(--radius); padding:1.35rem 1.5rem;
+    margin-bottom:.9rem; background:var(--surface); box-shadow:var(--shadow-sm);
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .card:hover { border-color:var(--border-strong); box-shadow:var(--shadow-md); }
+  .card h3 { display:flex; align-items:center; flex-wrap:wrap; gap:.45rem; font-size:1.02rem; font-weight:650; margin:0 0 .35rem; }
+  .name {
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.78rem; font-weight:500;
+    color:var(--muted); background:var(--bg); border:1px solid var(--border);
+    padding:.1rem .5rem; border-radius:var(--radius-sm);
+  }
+  .item-icon { width:20px; height:20px; border-radius:var(--radius-sm); object-fit:contain; flex-shrink:0; }
+  .desc { margin:.35rem 0 .5rem; color:var(--muted); }
+  .uri code { font-size:.82rem; }
+  .meta { color:var(--muted); font-size:.82rem; margin:.2rem 0; }
+
+  h4 {
+    margin:1.4rem 0 .5rem; font-size:.7rem; font-weight:700; text-transform:uppercase;
+    letter-spacing:.08em; color:var(--muted);
+  }
+
+  /* ── Code blocks ─────────────────────────────────── */
+  code {
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.84em;
+    background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:.08rem .35rem;
+  }
+  pre {
+    background:var(--code-bg); color:var(--code-fg); padding:.9rem 1.1rem; border-radius:var(--radius-md);
+    overflow-x:auto; margin:0; font-size:.82rem; line-height:1.55;
+    border:1px solid var(--code-border);
+  }
+  pre code { background:none; border:none; padding:0; color:inherit; font-size:inherit; }
+  .codewrap { position:relative; margin:.25rem 0 .5rem; }
+  .codewrap pre { padding-top:2.1rem; }
+  .copy-btn {
+    position:absolute; top:.5rem; right:.5rem; z-index:2; padding:.18rem .6rem;
+    font-size:.7rem; font-weight:600; color:var(--muted); background:transparent;
+    border:1px solid var(--border); border-radius:6px; cursor:pointer;
+    transition:color .15s, background .15s;
+  }
+  .copy-btn:hover { color:var(--fg); border-color:var(--border-strong); }
+  .filename {
+    position:absolute; top:.62rem; left:1.1rem; right:4.5rem; z-index:2; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.7rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+
+  /* ── Tables ──────────────────────────────────────── */
+  table.schema-table { width:100%; border-collapse:collapse; margin:.25rem 0 .5rem; border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden; }
+  table.schema-table th {
+    text-align:left; padding:.5rem .75rem; font-size:.68rem; font-weight:700; text-transform:uppercase;
+    letter-spacing:.06em; color:var(--muted); background:var(--bg); border-bottom:1px solid var(--border);
+  }
+  table.schema-table td { text-align:left; padding:.55rem .75rem; border-bottom:1px solid var(--border); vertical-align:top; font-size:.87rem; }
+  table.schema-table tr:last-child td { border-bottom:none; }
+  table.schema-table tbody tr:hover td { background:var(--accent-soft); }
+  .nested { margin-top:.5rem; }
+  .default { color:var(--muted); font-size:.82em; margin-top:.15rem; }
+  .req { color:var(--red); font-size:.64rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; margin-left:.3rem; }
+  .empty { color:var(--muted); font-style:italic; font-size:.9rem; }
+  .no-results { display:none; text-align:center; color:var(--muted); padding:3rem 0; font-size:.95rem; }
+  .no-results.show { display:block; }
+
+  /* ── Badges ──────────────────────────────────────── */
+  .badges { display:flex; flex-wrap:wrap; gap:.35rem; margin:.4rem 0; }
+  .badge {
+    display:inline-flex; align-items:center; font-size:.68rem; font-weight:600; letter-spacing:.01em;
+    padding:.14rem .6rem; border-radius:99px; color:var(--muted);
+    background:var(--bg); border:1px solid var(--border);
+  }
+  .badge-destructive { color:var(--red); background:rgba(220,38,38,.08); border-color:rgba(220,38,38,.25); }
+  .badge-readonly { color:var(--green); background:rgba(22,163,74,.08); border-color:rgba(22,163,74,.25); }
+  .badge-idempotent { color:var(--accent); background:var(--accent-soft); border-color:transparent; }
+  .badge-openworld { color:var(--amber); background:rgba(217,119,6,.08); border-color:rgba(217,119,6,.25); }
+  .badge-capability { text-transform:capitalize; }
+  .badge-app { color:var(--accent); background:var(--accent-soft); border-color:transparent; }
+
+  /* ── Tabs ────────────────────────────────────────── */
+  .tabs {
+    display:inline-flex; gap:2px; padding:3px; margin-bottom:1rem;
+    background:var(--bg); border:1px solid var(--border); border-radius:var(--radius);
+  }
+  .tab-btn {
+    border:none; background:none; padding:.4rem .95rem; cursor:pointer; color:var(--muted);
+    font-size:.84rem; font-weight:550; border-radius:var(--radius-sm); transition:color .15s, background .15s;
+  }
+  .tab-btn:hover { color:var(--fg); }
+  .tab-btn.active { color:var(--fg); background:var(--surface); box-shadow:var(--shadow-sm); border:1px solid var(--border); }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+
+  /* ── Try it ──────────────────────────────────────── */
+  .try-it { margin-top:1rem; border-top:1px dashed var(--border-strong); }
+  .try-it summary {
+    cursor:pointer; font-size:.84rem; font-weight:600; color:var(--accent);
+    list-style:none; display:flex; align-items:center; gap:.3rem; padding:.6rem 0;
+  }
+  .try-it summary::-webkit-details-marker { display:none; }
+  .try-it summary .chev { transition:transform .15s; font-size:1rem; line-height:1; }
+  .try-it[open] summary .chev { transform:rotate(90deg); }
+  .try-it-body { padding:.25rem 0 .75rem; }
+  .try-it-args {
+    width:100%; margin:.25rem 0 .6rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.82rem; background:var(--code-bg); color:var(--code-fg); border:1px solid var(--code-border);
+    border-radius:var(--radius-md); padding:.7rem .9rem; resize:vertical;
+  }
+  .try-it-body > button {
+    padding:.42rem 1.2rem; border-radius:var(--radius-sm); border:none; background:var(--accent);
+    color:#fff; cursor:pointer; font-size:.83rem; font-weight:600;
+    transition:background .15s;
+  }
+  .try-it-body > button:hover { background:var(--accent-hover); }
+  .try-it-output { margin-top:.6rem; font-size:.8rem; }
+
+  /* ── Prompt preview modal ────────────────────────── */
+  .prompt-preview {
+    margin-top:.9rem; padding:.4rem 1rem; border-radius:var(--radius-sm);
+    border:1px solid var(--accent); background:var(--accent-soft); color:var(--accent);
+    font-size:.82rem; font-weight:600; cursor:pointer; transition:background .15s, color .15s;
+  }
+  .prompt-preview:hover { background:var(--accent); color:#fff; }
+  .modal-backdrop { position:fixed; inset:0; z-index:150; background:rgba(0,0,0,.5); }
+  .modal {
+    position:fixed; z-index:160; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:min(680px, calc(100vw - 2rem)); max-height:80vh; overflow:auto;
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow-md); padding:1rem 1.25rem 1.25rem;
+  }
+  .modal-head { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:.6rem; }
+  .modal-args {
+    width:100%; margin-bottom:.6rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.82rem; background:var(--code-bg); color:var(--code-fg);
+    border:1px solid var(--code-border); border-radius:var(--radius-sm); padding:.5rem .7rem;
+    resize:vertical;
+  }
+  .modal-bar { display:flex; justify-content:space-between; align-items:center; gap:.75rem; margin-bottom:.5rem; flex-wrap:wrap; }
+  .prompt-fetch {
+    padding:.35rem 1rem; border-radius:var(--radius-sm); border:none; background:var(--accent);
+    color:#fff; cursor:pointer; font-size:.82rem; font-weight:600;
+  }
+  .prompt-fetch:hover { background:var(--accent-hover); }
+  .modal-tabs { display:inline-flex; gap:2px; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:2px; }
+  .modal-tab { border:none; background:none; padding:.28rem .85rem; font-size:.8rem; border-radius:6px; color:var(--muted); cursor:pointer; }
+  .modal-tab.active { background:var(--surface); color:var(--fg); box-shadow:var(--shadow-sm); }
+  .modal-output { max-height:45vh; margin:0; font-size:.8rem; }
+  .md-view { max-height:45vh; overflow:auto; font-size:.88rem; line-height:1.6; }
+  .md-view[hidden] { display:none; }
+  .md-view h1, .md-view h2, .md-view h3, .md-view h4 { margin:.9rem 0 .3rem; letter-spacing:-.01em; }
+  .md-view h1 { font-size:1.2rem; } .md-view h2 { font-size:1.05rem; } .md-view h3 { font-size:.95rem; } .md-view h4 { font-size:.88rem; }
+  .md-view p { margin:.4rem 0; }
+  .md-view ul, .md-view ol { margin:.4rem 0; padding-left:1.4rem; }
+  .md-view li { margin:.15rem 0; }
+  .md-view blockquote { margin:.5rem 0; padding:.1rem .9rem; border-left:3px solid var(--accent); color:var(--muted); background:var(--accent-soft); border-radius:0 var(--radius-sm) var(--radius-sm) 0; }
+  .md-view hr { border:none; border-top:1px solid var(--border); margin:.8rem 0; }
+  .md-view pre { margin:.5rem 0; }
+  .md-view a { color:var(--accent); }
+
+  /* ── Footer ──────────────────────────────────────── */
+  footer {
+    margin-top:3rem; padding-top:1.25rem; border-top:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;
+    color:var(--muted); font-size:.78rem;
+  }
+  .foot-brand {
+    flex-shrink:0; color:var(--accent); font-weight:600; font-size:.78rem;
+    padding:.25rem .75rem; border:1px solid var(--border); border-radius:99px; background:var(--surface);
+  }
+  .foot-brand:hover { border-color:var(--accent); }
+
+  /* ── Responsive ──────────────────────────────────── */
+  @media (max-width:960px) {
+    .shell { grid-template-columns:minmax(0,1fr); }
+    .sidebar {
+      position:fixed; inset:0 auto 0 0; top:0; z-index:100; width:280px; height:100vh;
+      background:var(--surface); transform:translateX(-100%); transition:transform .2s ease;
+      box-shadow:var(--shadow-md);
+    }
+    body.nav-open .sidebar { transform:translateX(0); }
+    .backdrop {
+      display:block; position:fixed; inset:0; z-index:90; background:rgba(0,0,0,.45);
+      opacity:0; pointer-events:none; transition:opacity .2s;
+    }
+    body.nav-open .backdrop { opacity:1; pointer-events:auto; }
+    .menu-btn { display:inline-flex; }
+    main { padding:1.5rem 1.25rem 2.5rem; }
+    .topbar { gap:.5rem; padding:.55rem .9rem; }
+    .searchwrap { display:none; flex:1; min-width:100px; margin-left:0; }
+    body.search-open .searchwrap { display:block; }
+    #search-toggle { display:inline-flex; }
+    .brand-name { display:none; }
+    .tabs { max-width:100%; overflow-x:auto; scrollbar-width:none; }
+    .tabs::-webkit-scrollbar { display:none; }
+    .tab-btn { white-space:nowrap; flex-shrink:0; }
+  }
+  @media (max-width:640px) {
+    table.schema-table, table.schema-table tbody, table.schema-table tr, table.schema-table th { display:block; width:100%; }
+    table.schema-table thead { display:none; }
+    table.schema-table tr { padding:.75rem .9rem; border-bottom:1px solid var(--border); background:none; }
+    table.schema-table tr:last-child { border-bottom:none; }
+    table.schema-table td {
+      display:flex; flex-direction:column; align-items:stretch; gap:.15rem;
+      border:none; padding:.2rem 0;
+    }
+    table.schema-table td::before {
+      content:attr(data-label); font-size:.62rem; font-weight:700; text-transform:uppercase;
+      letter-spacing:.06em; color:var(--muted);
+    }
+    table.schema-table td > code, table.schema-table td > span.req { align-self:flex-start; }
+    table.schema-table tbody tr:hover td { background:none; }
+    .nested { border:1px solid var(--border); border-radius:var(--radius-sm); padding:.25rem .6rem .35rem; margin-top:.35rem; }
+    footer { flex-direction:column; align-items:flex-start; gap:.5rem; }
+  }
+</style>
+</head>
+<body>
+<a href="#content" class="skip-link">Skip to content</a>
+<div class="topbar">
+  <button type="button" class="icon-btn menu-btn" id="menu-btn" aria-label="Open navigation">&#9776;</button>
+  <div class="brand">
+    <span class="brand-name">mcp-nexus</span>
+    <span class="pill">v0.8.1</span>
+    <span class="pill">stdio</span>
+  </div>
+  <div class="searchwrap"><span class="search-key" aria-hidden="true">/</span><input id="search" type="search" placeholder="Search tools, resources, prompts&hellip;" aria-label="Search tools, resources, and prompts" autocomplete="off"></div>
+  <button type="button" class="icon-btn" id="search-toggle" aria-label="Open search" aria-expanded="false"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg></button>
+  <button type="button" class="icon-btn" id="theme-toggle" aria-label="Toggle theme"></button>
+</div>
+<div class="shell">
+  <aside class="sidebar">
+    <nav class="sidebar-nav" id="sidebar-nav" aria-label="Page navigation">
+      <a href="#overview" class="toc-head solo">Overview</a>
+      <a href="#install" class="toc-head solo">Install</a>
+      <div class="toc-group">
+      <a href="#tools" class="toc-head">Tools<span class="count">4</span></a>
+      <a href="#tool-describe_capabilities" class="toc-item">Describe capabilities</a><a href="#tool-execute_capability" class="toc-item">Execute capability</a><a href="#tool-search_capabilities" class="toc-item">Search capabilities</a><a href="#tool-search_servers" class="toc-item">Search servers</a>
+    </div>
+      <div class="toc-group">
+      <a href="#resources" class="toc-head">Resources<span class="count">1</span></a>
+      <a href="#resource-status" class="toc-item">status</a>
+    </div>
+      
+      
+    </nav></aside>
+  <div class="backdrop"></div>
+  <main>
+    <div class="content" id="content">
+      <section class="hero" id="overview">
+        <h1>mcp-nexus</h1>
+        
+        <p class="hero-stats">4 tools<span class="stat-sep">·</span>1 resource</p>
+        
+        <div class="instructions"><span class="label">From the server</span>MCP Nexus routes to many downstream MCP servers behind one endpoint. Workflow: search_capabilities to discover, describe_capabilities to inspect exact input schemas, execute_capability to run. Do not guess argument shapes: always describe a capability before executing it.</div>
+      </section>
+
+      
+    <section id="install">
+      <h2>Install</h2>
+      <p class="section-hint">Add this server to your MCP client of choice.</p>
+      <div class="tabs" role="tablist">
+        <button class="tab-btn active" data-tab="claude-code" role="tab" aria-selected="true">Claude Code</button><button class="tab-btn" data-tab="cursor" role="tab" aria-selected="false">Cursor</button><button class="tab-btn" data-tab="vscode" role="tab" aria-selected="false">VS Code</button>
+      </div>
+      
+        <div class="tab-panel active" data-tab-panel="claude-code" role="tabpanel">
+          <div class="codewrap"><span class="filename">Terminal — project scope by default (-s user for global)</span><button type="button" class="copy-btn" aria-label="Copy to clipboard">Copy</button><pre><code>claude mcp add mcp-nexus -- npx -y @fyrlabs/mcp-nexus</code></pre></div>
+        </div>
+        <div class="tab-panel" data-tab-panel="cursor" role="tabpanel">
+          <div class="codewrap"><span class="filename">.cursor/mcp.json</span><button type="button" class="copy-btn" aria-label="Copy to clipboard">Copy</button><pre><code>{
+  &quot;mcpServers&quot;: {
+    &quot;mcp-nexus&quot;: {
+      &quot;type&quot;: &quot;stdio&quot;,
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [
+        &quot;-y&quot;,
+        &quot;@fyrlabs/mcp-nexus&quot;
+      ]
+    }
+  }
+}</code></pre></div>
+        </div>
+        <div class="tab-panel" data-tab-panel="vscode" role="tabpanel">
+          <div class="codewrap"><span class="filename">.vscode/mcp.json</span><button type="button" class="copy-btn" aria-label="Copy to clipboard">Copy</button><pre><code>{
+  &quot;servers&quot;: {
+    &quot;mcp-nexus&quot;: {
+      &quot;type&quot;: &quot;stdio&quot;,
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [
+        &quot;-y&quot;,
+        &quot;@fyrlabs/mcp-nexus&quot;
+      ]
+    }
+  }
+}</code></pre></div>
+        </div>
+    </section>
+
+      <section id="tools">
+        <h2>Tools<span class="count-inline">(4)</span></h2>
+        
+    <section class="card" id="tool-describe_capabilities" data-search="describe_capabilities describe capabilities return the full metadata and input schemas for the given capability ids.">
+      <h3>Describe capabilities<code class="name">describe_capabilities</code></h3>
+      <p class="desc">Return the full metadata and input schemas for the given capability IDs.</p>
+      <h4>Parameters</h4>
+      
+    <table class="schema-table">
+      <thead><tr><th scope="col">Parameter</th><th scope="col">Type</th><th scope="col">Description</th></tr></thead>
+      <tbody>
+        <tr>
+          <td data-label="Parameter"><code>capabilityIds</code> <span class="req">required</span></td>
+          <td data-label="Type"><code>array&lt;string&gt;</code></td>
+          <td data-label="Description">Capability IDs returned by search_capabilities</td>
+        </tr></tbody>
+    </table>
+      
+      <h4>Example call</h4>
+      <div class="codewrap"><button type="button" class="copy-btn" aria-label="Copy to clipboard">Copy</button><pre><code>{
+  &quot;name&quot;: &quot;describe_capabilities&quot;,
+  &quot;arguments&quot;: {
+    &quot;capabilityIds&quot;: [
+      &quot;&lt;item&gt;&quot;
+    ]
+  }
+}</code></pre></div>
+      
+    </section>
+    <section class="card" id="tool-execute_capability" data-search="execute_capability execute capability execute a downstream mcp capability by id. the underlying server is started on demand and the arguments are forwarded verbatim.">
+      <h3>Execute capability<code class="name">execute_capability</code></h3>
+      <p class="desc">Execute a downstream MCP capability by ID. The underlying server is started on demand and the arguments are forwarded verbatim.</p>
+      <h4>Parameters</h4>
+      
+    <table class="schema-table">
+      <thead><tr><th scope="col">Parameter</th><th scope="col">Type</th><th scope="col">Description</th></tr></thead>
+      <tbody>
+        <tr>
+          <td data-label="Parameter"><code>capabilityId</code> <span class="req">required</span></td>
+          <td data-label="Type"><code>string</code></td>
+          <td data-label="Description">Capability ID to execute</td>
+        </tr>
+        <tr>
+          <td data-label="Parameter"><code>arguments</code></td>
+          <td data-label="Type"><code>object</code></td>
+          <td data-label="Description">Arguments matching the tool&#39;s input schema (see describe_capabilities)</td>
+        </tr></tbody>
+    </table>
+      
+      <h4>Example call</h4>
+      <div class="codewrap"><button type="button" class="copy-btn" aria-label="Copy to clipboard">Copy</button><pre><code>{
+  &quot;name&quot;: &quot;execute_capability&quot;,
+  &quot;arguments&quot;: {
+    &quot;capabilityId&quot;: &quot;&lt;capabilityId&gt;&quot;
+  }
+}</code></pre></div>
+      
+    </section>
+    <section class="card" id="tool-search_capabilities" data-search="search_capabilities search capabilities search every indexed downstream mcp capability by natural language, keywords, tags, server id, or capability id. returns lightweight metadata only.">
+      <h3>Search capabilities<code class="name">search_capabilities</code></h3>
+      <p class="desc">Search every indexed downstream MCP capability by natural language, keywords, tags, server id, or capability id. Returns lightweight metadata only.</p>
+      <h4>Parameters</h4>
+      
+    <table class="schema-table">
+      <thead><tr><th scope="col">Parameter</th><th scope="col">Type</th><th scope="col">Description</th></tr></thead>
+      <tbody>
+        <tr>
+          <td data-label="Parameter"><code>query</code> <span class="req">required</span></td>
+          <td data-label="Type"><code>string</code></td>
+          <td data-label="Description">Natural language or keyword query describing the capability you need</td>
+        </tr>
+        <tr>
+          <td data-label="Parameter"><code>limit</code></td>
+          <td data-label="Type"><code>integer</code></td>
+          <td data-label="Description">Maximum number of results to return</td>
+        </tr></tbody>
+    </table>
+      
+      <h4>Example call</h4>
+      <div class="codewrap"><button type="button" class="copy-btn" aria-label="Copy to clipboard">Copy</button><pre><code>{
+  &quot;name&quot;: &quot;search_capabilities&quot;,
+  &quot;arguments&quot;: {
+    &quot;query&quot;: &quot;&lt;query&gt;&quot;
+  }
+}</code></pre></div>
+      
+    </section>
+    <section class="card" id="tool-search_servers" data-search="search_servers search servers rank configured downstream mcp servers against a domain-level query. useful before drilling into capability search.">
+      <h3>Search servers<code class="name">search_servers</code></h3>
+      <p class="desc">Rank configured downstream MCP servers against a domain-level query. Useful before drilling into capability search.</p>
+      <h4>Parameters</h4>
+      
+    <table class="schema-table">
+      <thead><tr><th scope="col">Parameter</th><th scope="col">Type</th><th scope="col">Description</th></tr></thead>
+      <tbody>
+        <tr>
+          <td data-label="Parameter"><code>query</code> <span class="req">required</span></td>
+          <td data-label="Type"><code>string</code></td>
+          <td data-label="Description">Domain-level query such as &#39;project management&#39;</td>
+        </tr></tbody>
+    </table>
+      
+      <h4>Example call</h4>
+      <div class="codewrap"><button type="button" class="copy-btn" aria-label="Copy to clipboard">Copy</button><pre><code>{
+  &quot;name&quot;: &quot;search_servers&quot;,
+  &quot;arguments&quot;: {
+    &quot;query&quot;: &quot;&lt;query&gt;&quot;
+  }
+}</code></pre></div>
+      
+    </section>
+      </section>
+
+      <section id="resources">
+        <h2>Resources<span class="count-inline">(1)</span></h2>
+        
+    <section class="card" id="resource-status" data-search="status   nexus://status">
+      <h3>status</h3>
+      <p class="uri"><code>nexus://status</code></p>
+      <p class="meta">MIME type: <code>application/json</code></p>
+      
+      
+    </section>
+      </section>
+
+      
+
+      
+
+      <div class="no-results">Nothing matches that search.</div>
+
+      <footer>
+        <span>Generated Aug 24, 2026 · point-in-time snapshot; dynamic servers may drift</span>
+        <a class="foot-brand" href="https://github.com/fyrlabs/mcp-docs" target="_blank" rel="noopener">Built with mcp-docs</a>
+      </footer>
+    </div>
+  </main>
+</div>
+
+<script>
+  var root = document.documentElement;
+
+  // Theme toggle
+  var themeBtn = document.getElementById("theme-toggle");
+  function syncThemeBtn() {
+    var dark = root.dataset.theme === "dark" || (!root.dataset.theme && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    themeBtn.textContent = dark ? "\u2600" : "\u263E";
+    themeBtn.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
+  }
+  if (themeBtn) {
+    themeBtn.addEventListener("click", function () {
+      var next = root.dataset.theme === "dark" ? "light" : "dark";
+      root.dataset.theme = next;
+      try { localStorage.setItem("mcp-docs-theme", next); } catch (e) {}
+      syncThemeBtn();
+    });
+    syncThemeBtn();
+  }
+
+  // Mobile drawer
+  var menuBtn = document.getElementById("menu-btn");
+  if (menuBtn) {
+    menuBtn.addEventListener("click", function () { document.body.classList.toggle("nav-open"); });
+    document.querySelector(".backdrop").addEventListener("click", function () { document.body.classList.remove("nav-open"); });
+    document.querySelectorAll(".sidebar-nav a").forEach(function (a) {
+      a.addEventListener("click", function () { document.body.classList.remove("nav-open"); });
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && document.body.classList.contains("nav-open")) {
+        document.body.classList.remove("nav-open");
+        menuBtn.focus();
+      }
+    });
+  }
+
+  // Install tabs
+  document.querySelectorAll(".tab-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var tabs = btn.closest(".tabs");
+      var group = tabs.parentElement;
+      tabs.querySelectorAll(".tab-btn").forEach(function (b) {
+        b.classList.toggle("active", b === btn);
+        b.setAttribute("aria-selected", b === btn ? "true" : "false");
+      });
+      group.querySelectorAll(".tab-panel").forEach(function (p) { p.classList.toggle("active", p.dataset.tabPanel === btn.dataset.tab); });
+    });
+  });
+
+  // Unified search ("/" focuses, Escape clears)
+  var search = document.getElementById("search");
+  var noResults = document.querySelector(".no-results");
+  function applySearch() {
+    var q = search.value.trim().toLowerCase();
+    var visibleTotal = 0;
+    document.querySelectorAll(".card[data-search]").forEach(function (card) {
+      var show = !q || card.dataset.search.includes(q);
+      card.style.display = show ? "" : "none";
+      if (show) visibleTotal++;
+    });
+    document.querySelectorAll("#tools, #resources, #resource-templates, #prompts").forEach(function (sec) {
+      var cards = sec.querySelectorAll(".card[data-search]");
+      if (!cards.length) return;
+      sec.style.display = Array.from(cards).some(function (c) { return !q || c.dataset.search.includes(q); }) ? "" : "none";
+    });
+    if (noResults) noResults.classList.toggle("show", q.length > 0 && visibleTotal === 0);
+  }
+  if (search) {
+    search.addEventListener("input", applySearch);
+    var searchToggle = document.getElementById("search-toggle");
+    if (searchToggle) {
+      searchToggle.addEventListener("click", function () {
+        var open = document.body.classList.toggle("search-open");
+        searchToggle.setAttribute("aria-expanded", open ? "true" : "false");
+        searchToggle.setAttribute("aria-label", open ? "Close search" : "Open search");
+        if (open) search.focus();
+        else { search.value = ""; applySearch(); }
+      });
+    }
+    document.addEventListener("keydown", function (e) {
+      var tag = document.activeElement && document.activeElement.tagName;
+      if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA") { e.preventDefault(); if (searchToggle) document.body.classList.add("search-open"); search.focus(); }
+      if (e.key === "Escape" && document.activeElement === search) { search.value = ""; applySearch(); search.blur(); }
+    });
+  }
+
+  // Copy buttons
+  document.querySelectorAll(".codewrap").forEach(function (wrap) {
+    var btn = wrap.querySelector(".copy-btn");
+    var code = wrap.querySelector("code");
+    if (!btn || !code) return;
+    btn.addEventListener("click", function () {
+      navigator.clipboard.writeText(code.innerText).then(function () {
+        btn.textContent = "Copied!";
+        setTimeout(function () { btn.textContent = "Copy"; }, 1200);
+      });
+    });
+  });
+
+  // Scrollspy: highlight the sidebar entry for the section/item nearest the top.
+  // Scroll-position based (not IntersectionObserver) so it never jumps between items.
+  var links = {};
+  var spyIds = [];
+  document.querySelectorAll('.sidebar-nav a[href^="#"]').forEach(function (a) {
+    var id = a.getAttribute("href").slice(1);
+    links[id] = a;
+    spyIds.push(id);
+  });
+  function setActive(link) {
+    Object.keys(links).forEach(function (k) { links[k].classList.remove("active"); });
+    if (link) link.classList.add("active");
+  }
+  function updateSpy() {
+    var currentId = null;
+    for (var i = 0; i < spyIds.length; i++) {
+      var el = document.getElementById(spyIds[i]);
+      if (el && el.getBoundingClientRect().top <= 96) currentId = spyIds[i];
+    }
+    setActive(currentId ? links[currentId] : null);
+  }
+  var spyTicking = false;
+  window.addEventListener("scroll", function () {
+    if (!spyTicking) {
+      spyTicking = true;
+      requestAnimationFrame(function () { spyTicking = false; updateSpy(); });
+    }
+  }, { passive: true });
+  window.addEventListener("resize", updateSpy);
+  updateSpy();
+
+  if (window.MCP_DOCS_TRY_IT) {
+    var token = window.MCP_DOCS_TRY_IT.token;
+    var callApi = async function (path, body) {
+      var res = await fetch(path, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-mcp-docs-token": token },
+        body: JSON.stringify(body),
+      });
+      var text = await res.text();
+      var parsed;
+      try { parsed = JSON.parse(text); } catch (e) { parsed = text; }
+      if (!res.ok) throw new Error(parsed && parsed.error ? parsed.error : text);
+      return parsed;
+    };
+    document.querySelectorAll(".try-it-run").forEach(function (btn) {
+      btn.addEventListener("click", async function () {
+        var panel = btn.closest(".try-it");
+        var textarea = panel.querySelector(".try-it-args");
+        var output = panel.querySelector(".try-it-output");
+        var args;
+        try { args = JSON.parse(textarea.value || "{}"); }
+        catch (e) { output.hidden = false; output.textContent = "Invalid JSON: " + e.message; return; }
+        output.hidden = false;
+        output.textContent = "Running\u2026";
+        try { output.textContent = JSON.stringify(await callApi("/api/tools/call", { name: btn.dataset.tool, arguments: args }), null, 2); }
+        catch (e) { output.textContent = "Error: " + e.message; }
+      });
+    });
+    document.querySelectorAll(".try-it-read").forEach(function (btn) {
+      btn.addEventListener("click", async function () {
+        var panel = btn.closest(".try-it");
+        var output = panel.querySelector(".try-it-output");
+        output.hidden = false;
+        output.textContent = "Reading\u2026";
+        try { output.textContent = JSON.stringify(await callApi("/api/resources/read", { uri: btn.dataset.uri }), null, 2); }
+        catch (e) { output.textContent = "Error: " + e.message; }
+      });
+    });
+
+    // Prompt preview modal
+    var modal = document.getElementById("prompt-modal");
+    if (modal) {
+      var backdrop = document.getElementById("modal-backdrop");
+      var modalOutput = document.getElementById("prompt-modal-output");
+      var mdView = document.getElementById("prompt-modal-md");
+      var modalArgs = document.getElementById("prompt-modal-args");
+      var modalTitle = document.getElementById("prompt-modal-title");
+      var currentPrompt = "";
+      var fetchedText = "";
+      var fetchedJson = "";
+      var view = "rendered";
+      function renderMarkdown(src) {
+        function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+        function inline(s) {
+          return s
+            .replace(/`([^`]+)`/g, "<code>$1</code>")
+            .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+            .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+            .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+        }
+        var lines = esc(src).split("\n");
+        var html = [], inCode = false, codeBuf = [], listStack = [];
+        function closeLists() { while (listStack.length) html.push("</" + listStack.pop() + ">"); }
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i];
+          if (/^```/.test(line.trim())) {
+            if (inCode) { html.push("<pre><code>" + codeBuf.join("\n") + "</code></pre>"); inCode = false; codeBuf = []; }
+            else { closeLists(); inCode = true; }
+            continue;
+          }
+          if (inCode) { codeBuf.push(line); continue; }
+          var h = line.match(/^(#{1,4})\s+(.*)$/);
+          if (h) { closeLists(); html.push("<h" + h[1].length + ">" + inline(h[2]) + "</h" + h[1].length + ">"); continue; }
+          if (/^\s*(-{3,}|\*{3,})\s*$/.test(line)) { closeLists(); html.push("<hr>"); continue; }
+          var ul = line.match(/^\s*[-*+]\s+(.*)$/);
+          var ol = line.match(/^\s*\d+[.)]\s+(.*)$/);
+          if (ul || ol) {
+            var want = ul ? "ul" : "ol";
+            if (listStack[listStack.length - 1] !== want) { closeLists(); listStack.push(want); html.push("<" + want + ">"); }
+            html.push("<li>" + inline((ul || ol)[1]) + "</li>");
+            continue;
+          }
+          if (/^&gt;s?/.test(line)) { closeLists(); html.push("<blockquote>" + inline(line.replace(/^&gt;s?/, "")) + "</blockquote>"); continue; }
+          if (line.trim() === "") { closeLists(); continue; }
+          closeLists();
+          html.push("<p>" + inline(line) + "</p>");
+        }
+        if (inCode) html.push("<pre><code>" + codeBuf.join("\n") + "</code></pre>");
+        closeLists();
+        return html.join("\n");
+      }
+      function setView(v) {
+        view = v;
+        modal.querySelectorAll(".modal-tab").forEach(function (t) { t.classList.toggle("active", t.dataset.view === v); });
+        mdView.hidden = v !== "rendered";
+        modalOutput.hidden = v === "rendered";
+        if (v === "rendered") mdView.innerHTML = renderMarkdown(fetchedText);
+        else if (v === "markdown") modalOutput.textContent = fetchedText;
+        else modalOutput.textContent = fetchedJson;
+      }
+      function closeModal() {
+        modal.hidden = true;
+        backdrop.hidden = true;
+      }
+      function fetchPrompt() {
+        var args;
+        try { args = JSON.parse(modalArgs.value || "{}"); }
+        catch (e) { mdView.hidden = true; modalOutput.hidden = false; modalOutput.textContent = "Invalid JSON: " + e.message; return; }
+        mdView.hidden = true; modalOutput.hidden = false;
+        modalOutput.textContent = "Loading\u2026";
+        callApi("/api/prompts/get", { name: currentPrompt, arguments: args }).then(function (result) {
+          fetchedJson = JSON.stringify(result, null, 2);
+          fetchedText = (result.messages || []).map(function (m) {
+            var c = m.content || {};
+            var body = typeof c.text === "string" ? c.text : JSON.stringify(c, null, 2);
+            return (m.role ? "[" + m.role + "]\n" : "") + body;
+          }).join("\n\n" + "\u2014\u2014\u2014\n\n");
+          setView(view);
+        }).catch(function (e) { modalOutput.textContent = "Error: " + e.message; });
+      }
+      document.querySelectorAll(".prompt-preview").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          currentPrompt = btn.dataset.prompt;
+          modalTitle.textContent = "Prompt: " + currentPrompt;
+          modalArgs.value = btn.dataset.prefill || "{}";
+          fetchedText = ""; fetchedJson = "";
+          modalOutput.textContent = "";
+          backdrop.hidden = false;
+          modal.hidden = false;
+          fetchPrompt();
+        });
+      });
+      document.getElementById("prompt-modal-fetch").addEventListener("click", fetchPrompt);
+      document.getElementById("prompt-modal-close").addEventListener("click", closeModal);
+      backdrop.addEventListener("click", closeModal);
+      modal.querySelectorAll(".modal-tab").forEach(function (t) {
+        t.addEventListener("click", function () { setView(t.dataset.view); });
+      });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && !modal.hidden) closeModal();
+      });
+    }
+  }
+</script>
+</body>
+</html>

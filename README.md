@@ -25,7 +25,21 @@ AI Harness                            AI Harness
 
 Every connected MCP server contributes tool schemas to the model's context. Ten servers later you are burning tens of thousands of tokens on definitions the model rarely uses, and tool-selection quality degrades.
 
-Nexus flips the model: instead of pushing every downstream schema into context, it keeps a lightweight capability index on disk and serves a tiny control plane. The agent discovers capabilities when needed (`search_capabilities`), inspects exact schemas only for what it selected (`describe_capabilities`), and executes through Nexus (`execute_capability`). All state — config, index, analytics, learned sequences — lives locally in `.mcp-nexus/`.
+Nexus flips the model: instead of pushing every downstream schema into context, it keeps a lightweight capability index on disk and serves a tiny control plane. The agent discovers capabilities when needed (`search_capabilities`), inspects exact schemas only for what it selected (`describe_capabilities`), and executes through Nexus (`execute_capability`). All state (config, index, analytics, learned sequences) lives locally in `.mcp-nexus/`.
+
+### How much this helps depends on your harness
+
+Some harnesses now defer tool definitions themselves, so it is worth being precise about what Nexus adds on top.
+
+| Harness | Without Nexus | What Nexus adds |
+| --- | --- | --- |
+| **GitHub Copilot / VS Code** | Hard cap of 128 tools per request. Past it, agent mode refuses to run until you manually turn tools off. | Downstream tool count stops mattering: the harness sees 4 tools regardless of how many servers you run. |
+| **Claude Code** (tool search on by default) | Tool definitions are deferred, but every tool *name* plus each server's instructions still load at session start, and every configured server is connected in the background. | Names collapse to 4. Servers stay unspawned until something actually calls them. |
+| **Cursor, Windsurf, older models, Bedrock / Azure / proxied setups** | Every schema loads upfront. | The full reduction below. |
+
+On a synthetic 20-server, 400-tool ecosystem (`npm run bench`), the schemas total roughly 52,000 tokens against 544 for the Nexus control plane. That number is the upfront-loading case; where the harness already defers definitions, the saving is smaller but the lazy process startup and the tool-count ceiling still apply.
+
+Context is not the only reason to use it. Nexus also gives you lazy server startup, per-capability policies, health quarantine, and local usage learning, none of which a harness provides.
 
 ## Quick start
 
@@ -103,6 +117,7 @@ execute_capability   { "capabilityId": "github.review_comments.list",
 - [Architecture](docs/architecture.md) — modules, scoring model, storage schema
 - [Harness setup](docs/harness-setup.md) — Claude Code, Cursor, Codex, generic MCP clients
 - [`examples/project-mcp.json`](examples/project-mcp.json) — annotated starter config
+- [Control plane reference](docs/mcp/) — the 4 tools and the status resource, with full input schemas, generated from the running server by [`@fyrlabs/mcp-docs`](https://www.npmjs.com/package/@fyrlabs/mcp-docs) and drift-checked in CI
 
 ## Development
 

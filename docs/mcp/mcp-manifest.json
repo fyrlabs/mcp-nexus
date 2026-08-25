@@ -1,0 +1,142 @@
+{
+  "capabilities": {
+    "resources": {
+      "listChanged": true
+    },
+    "tools": {
+      "listChanged": true
+    }
+  },
+  "connection": {
+    "args": [
+      "-y",
+      "@fyrlabs/mcp-nexus"
+    ],
+    "command": "npx",
+    "transport": "stdio"
+  },
+  "instructions": "MCP Nexus routes to many downstream MCP servers behind one endpoint. Workflow: search_capabilities to discover, describe_capabilities to inspect exact input schemas, execute_capability to run. Do not guess argument shapes: always describe a capability before executing it.",
+  "manifestVersion": 1,
+  "prompts": [],
+  "resourceTemplates": [],
+  "resources": [
+    {
+      "mimeType": "application/json",
+      "name": "status",
+      "uri": "nexus://status"
+    }
+  ],
+  "server": {
+    "name": "mcp-nexus",
+    "version": "0.8.1"
+  },
+  "tools": [
+    {
+      "description": "Return the full metadata and input schemas for the given capability IDs.",
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "properties": {
+          "capabilityIds": {
+            "description": "Capability IDs returned by search_capabilities",
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "capabilityIds"
+        ],
+        "type": "object"
+      },
+      "name": "describe_capabilities",
+      "title": "Describe capabilities"
+    },
+    {
+      "description": "Execute a downstream MCP capability by ID. The underlying server is started on demand and the arguments are forwarded verbatim.",
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "properties": {
+          "arguments": {
+            "additionalProperties": {},
+            "description": "Arguments matching the tool's input schema (see describe_capabilities)",
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "capabilityId": {
+            "description": "Capability ID to execute",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "capabilityId"
+        ],
+        "type": "object"
+      },
+      "name": "execute_capability",
+      "title": "Execute capability"
+    },
+    {
+      "description": "Search every indexed downstream MCP capability by natural language, keywords, tags, server id, or capability id. Returns lightweight metadata only.",
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "properties": {
+          "limit": {
+            "description": "Maximum number of results to return",
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "description": "Natural language or keyword query describing the capability you need",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "search_capabilities",
+      "title": "Search capabilities"
+    },
+    {
+      "description": "Rank configured downstream MCP servers against a domain-level query. Useful before drilling into capability search.",
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "properties": {
+          "query": {
+            "description": "Domain-level query such as 'project management'",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "search_servers",
+      "title": "Search servers"
+    }
+  ]
+}

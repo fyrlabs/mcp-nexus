@@ -55,3 +55,20 @@ jobs:
       # that this job exists to catch that, not to duplicate the unix matrix.
       - run: npm run build
       - run: npm test
+
+  docs:
+    name: mcp docs manifest in sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # docs/mcp is generated from the live control plane. If a change adds, removes
+      # or reshapes a control-plane tool without regenerating, the published docs go
+      # stale silently. Regenerate with:
+      #   npx -y @fyrlabs/mcp-docs generate --command "npx -y @fyrlabs/mcp-nexus" --out docs/mcp
+      - run: npx -y @fyrlabs/mcp-docs check --command "node dist/cli/main.js" --manifest docs/mcp/mcp-manifest.json

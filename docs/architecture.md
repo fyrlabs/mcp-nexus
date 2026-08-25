@@ -107,3 +107,11 @@ when no project config exists (then state goes to `$XDG_DATA_HOME/mcp-nexus`).
 - `routing.disabledCapabilities` / `disabledServers` are enforced in both search filtering and execution.
 - Env references resolve only at spawn time; unresolved references fail that server's start with a
   clear error and never leak values into logs or errors.
+
+## Protocol version
+
+Nexus speaks MCP revision `2025-11-25` on both sides, via `@modelcontextprotocol/sdk` 1.x. It is a legacy-era implementation in the terms the spec now uses: it is an `initialize`-handshake server to the harness, and an `initialize`-handshake client to every downstream server.
+
+The current spec revision is `2026-07-28`, which removes the handshake and makes the core stateless. The two eras do not interoperate directly: a modern-only client cannot talk to a legacy server, and a legacy client cannot talk to a modern-only server. Dual-era implementations bridge both, and harnesses are shipping as dual-era (Claude Code runs a v1 runtime on SDK 1.x alongside a v2 runtime on SDK 2.0), so Nexus keeps working for now. Deprecated protocol features carry a minimum twelve-month support window.
+
+The exposed side is the **downstream client**, not the server: it breaks the first time a server you want to use ships modern-only, which is outside this project's control. That is the trigger to migrate, and the client side should move first. `@modelcontextprotocol/client` 2.x supports both eras through `versionNegotiation: 'auto'` and a cached `ConnectOptions.prior` verdict, so the migration does not force downstream servers to upgrade in step. There is an official v1 to v2 migration guide and a `@modelcontextprotocol/codemod` package. SDK 1.x is still maintained and is not deprecated, so there is no deadline beyond that trigger.
