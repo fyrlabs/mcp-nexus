@@ -7,6 +7,20 @@ minor releases.
 
 ## [Unreleased]
 
+### Added
+
+- **Config changes are now undoable.** Every command that edits your config (`init`, `add`, `remove`, `import`) saves a snapshot of the previous version first, keeping the last 10. `config backups` lists them and `config restore` rolls back, defaulting to the most recent. A restore is itself snapshotted, so you can undo the undo.
+- **Control plane reference** at `docs/mcp/`, generated from the running server, with full input schemas for all four tools and the status resource. CI fails if it drifts from the real tool surface.
+
+### Fixed
+
+- **A crash while saving your config can no longer corrupt it.** Config writes now go to a temp file and get renamed into place, so the file on disk is always complete and parseable.
+
+### Changed
+
+- README is clearer that how much context you save depends on your harness: with Copilot and VS Code it lifts a hard 128-tool cap, with Claude Code it collapses tool names and keeps servers unspawned, and elsewhere the full reduction applies.
+- `docs/architecture.md` records which MCP protocol revision Nexus speaks and when that will need to change.
+
 ## [0.8.1] - 2026-08-24
 
 Fixes from an independent adversarial review of 0.8.0, plus one import bug. No config changes needed.
