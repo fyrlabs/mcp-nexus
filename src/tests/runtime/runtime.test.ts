@@ -143,6 +143,50 @@ describe("runtime end-to-end (mock downstreams)", () => {
     });
   });
 
+  it("hides a server's capabilities from search while it is marked unavailable, and restores them", async () => {
+    await withTempDir(async (dir) => {
+      writeProjectConfig(dir, { github: { command: "mock-gh" }, jira: { command: "mock-jira" } });
+      const runtime = await bootRuntime(dir);
+      const query = "find comments people left on my PR";
+
+      const before = await runtime.router.search(query);
+      expect(before.some((match) => match.serverId === "github")).toBe(true);
+
+      runtime.index.markUnavailable("github");
+      const during = await runtime.router.search(query);
+      expect(during.some((match) => match.serverId === "github")).toBe(false);
+
+      runtime.index.markAvailable("github");
+      const after = await runtime.router.search(query);
+      expect(after.map((match) => match.capabilityId)).toEqual(
+        before.map((match) => match.capabilityId),
+      );
+
+      await runtime.shutdown();
+    });
+  });
+
+  it("scales global usage share by the busiest capability overall, not just the ones returned", async () => {
+    await withTempDir(async (dir) => {
+      writeProjectConfig(dir, { github: { command: "mock-gh" }, jira: { command: "mock-jira" } });
+      const runtime = await bootRuntime(dir);
+
+      for (let i = 0; i < 10; i++) {
+        await runtime.execute("jira.issues.search", { jql: "project = X" });
+      }
+      await runtime.execute("github.review_comments.list", { pull_number: 1 });
+
+      const results = await runtime.router.search("find comments people left on my PR");
+      const match = results.find((entry) => entry.capabilityId === "github.review_comments.list");
+
+      expect(match).toBeDefined();
+      expect(match?.signals.globalUsage).toBeGreaterThan(0);
+      expect(match?.signals.globalUsage).toBeLessThan(1);
+
+      await runtime.shutdown();
+    });
+  });
+
   it("executes a capability by lazily starting the owning server (spec scenario D)", async () => {
     await withTempDir(async (dir) => {
       writeProjectConfig(dir, { github: { command: "mock-gh" } });

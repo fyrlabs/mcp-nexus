@@ -105,7 +105,13 @@ export class AnalyticsRepository {
     );
   }
 
+  maxUsageCount(): number {
+    const row = this.db.get(`SELECT MAX(usage_count) AS max_usage FROM routing_stats`);
+    return Number(row?.max_usage ?? 0);
+  }
+
   getRoutingStats(capabilityIds?: string[]): Map<string, RoutingStatsRecord> {
+    if (capabilityIds?.length === 0) return new Map();
     const rows =
       capabilityIds && capabilityIds.length > 0
         ? this.db.all(

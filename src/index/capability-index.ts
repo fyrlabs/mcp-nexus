@@ -39,6 +39,16 @@ export interface IndexResult {
   durationMs: number;
 }
 
+interface CapabilityAttributes {
+  availability: Capability["availability"];
+  risk: Capability["metadata"]["risk"];
+}
+
+interface SearchFilter {
+  options: SearchOptions;
+  serverEnabled: Map<string, boolean>;
+}
+
 interface CandidateScores {
   lexical: number;
   exact: number;
@@ -58,6 +68,7 @@ export class CapabilityIndex {
   private readonly bm25 = new BM25Index();
   private readonly semantic: SemanticIndex;
   private readonly documents = new Map<string, LexicalDocument>();
+  private readonly attributes = new Map<string, CapabilityAttributes>();
 
   constructor(
     private readonly lifecycle: LifecycleManager,
@@ -155,8 +166,14 @@ export class CapabilityIndex {
     this.mergeExactMatches(candidates, expandedQuery);
 
     const minScore = options.minScore ?? this.routing.minScore;
+    const filter: SearchFilter = {
+      options,
+      serverEnabled: new Map(
+        this.registryCatalog.allDefinitions().map((entry) => [entry.id, entry.enabled]),
+      ),
+    };
     return [...candidates.entries()]
-      .filter(([capabilityId]) => this.isSearchable(capabilityId, options))
+      .filter(([capabilityId]) => this.isSearchable(capabilityId, filter))
       .sort((a, b) => rankOf(b[1]) - rankOf(a[1]) || a[0].localeCompare(b[0]))
       .slice(0, limit)
       .map(([capabilityId, scores]) => this.toMatch(capabilityId, scores))
@@ -214,6 +231,10 @@ export class CapabilityIndex {
   private setAvailability(serverId: string, availability: Capability["availability"]): void {
     const ids = this.capabilitiesRepo.listByServer(serverId).map((capability) => capability.capabilityId);
     this.capabilitiesRepo.setAvailability(ids, availability);
+    for (const id of ids) {
+      const attributes = this.attributes.get(id);
+      if (attributes) attributes.availability = availability;
+    }
   }
 
   private async reloadFromStore(): Promise<void> {
@@ -223,6 +244,13 @@ export class CapabilityIndex {
     this.documents.clear();
     for (const document of documents) {
       this.documents.set(document.id, document);
+    }
+    this.attributes.clear();
+    for (const capability of allCapabilities) {
+      this.attributes.set(capability.capabilityId, {
+        availability: capability.availability,
+        risk: capability.metadata.risk,
+      });
     }
     if (!this.semantic.enabled) return;
     this.semantic.clear();
@@ -279,19 +307,19 @@ export class CapabilityIndex {
     }
   }
 
-  private isSearchable(capabilityId: string, options: SearchOptions): boolean {
+  private isSearchable(capabilityId: string, filter: SearchFilter): boolean {
     const document = this.documents.get(capabilityId);
     if (!document) return false;
+    const { options } = filter;
     if (options.serverIds && !options.serverIds.includes(document.serverId)) return false;
     if (this.routing.disabledCapabilities.includes(capabilityId)) return false;
     if (this.routing.disabledServers.includes(document.serverId)) return false;
-    const capability = this.capabilitiesRepo.get(capabilityId);
-    if (capability?.availability === "unavailable") return false;
-    if (capability && this.routing.policies?.[capability.metadata.risk] === "deny") {
+    const attributes = this.attributes.get(capabilityId);
+    if (attributes?.availability === "unavailable") return false;
+    if (attributes && this.routing.policies?.[attributes.risk] === "deny") {
       return false;
     }
-    const definition = this.registryCatalog.allDefinitions().find((entry) => entry.id === document.serverId);
-    return definition ? definition.enabled : true;
+    return filter.serverEnabled.get(document.serverId) ?? true;
   }
 
   private toMatch(capabilityId: string, scores: CandidateScores): CapabilityMatch {

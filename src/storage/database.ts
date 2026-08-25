@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { DatabaseSync, type StatementSync } from "node:sqlite";
 import { NexusError } from "../models/errors.js";
 import { MIGRATIONS } from "./migrations.js";
 
@@ -25,8 +25,11 @@ function openDatabase(path: string): DatabaseSync {
   }
 }
 
+const STATEMENT_CACHE_LIMIT = 128;
+
 export class Database {
   private readonly db: DatabaseSync;
+  private readonly statements = new Map<string, StatementSync>();
 
   constructor(readonly path: string) {
     this.db = openDatabase(path);
@@ -48,34 +51,48 @@ export class Database {
         this.db.exec(migration.up);
         this.db.exec(`PRAGMA user_version = ${migration.version};`);
       });
+      this.statements.clear();
     }
   }
 
+  private prepare(sql: string): StatementSync {
+    const cached = this.statements.get(sql);
+    if (cached) return cached;
+    const statement = this.db.prepare(sql);
+    if (this.statements.size >= STATEMENT_CACHE_LIMIT) {
+      const oldest = this.statements.keys().next().value;
+      if (oldest !== undefined) this.statements.delete(oldest);
+    }
+    this.statements.set(sql, statement);
+    return statement;
+  }
+
   exec(sql: string): void {
+    this.statements.clear();
     this.db.exec(sql);
   }
 
   run(sql: string, ...params: SqlValue[]): RunResult {
-    return this.db.prepare(sql).run(...params) as RunResult;
+    return this.prepare(sql).run(...params) as RunResult;
   }
 
   get(sql: string, ...params: SqlValue[]): Record<string, SqlValue> | undefined {
-    return this.db.prepare(sql).get(...params) as Record<string, SqlValue> | undefined;
+    return this.prepare(sql).get(...params) as Record<string, SqlValue> | undefined;
   }
 
   all(sql: string, ...params: SqlValue[]): Record<string, SqlValue>[] {
-    return this.db.prepare(sql).all(...params) as Record<string, SqlValue>[];
+    return this.prepare(sql).all(...params) as Record<string, SqlValue>[];
   }
 
   transaction<T>(fn: () => T): T {
-    this.exec("BEGIN IMMEDIATE;");
+    this.db.exec("BEGIN IMMEDIATE;");
     try {
       const result = fn();
-      this.exec("COMMIT;");
+      this.db.exec("COMMIT;");
       return result;
     } catch (error) {
       try {
-        this.exec("ROLLBACK;");
+        this.db.exec("ROLLBACK;");
       } catch {
         // rollback after connection failure is best effort
       }
@@ -84,6 +101,7 @@ export class Database {
   }
 
   close(): void {
+    this.statements.clear();
     try {
       this.db.close();
     } catch {

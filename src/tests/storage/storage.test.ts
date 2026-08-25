@@ -217,3 +217,78 @@ describe("storage/analytics-repository", () => {
     expect(analytics.sequenceCount()).toBe(0);
   });
 });
+
+describe("storage/statement cache", () => {
+  it("reuses a prepared statement across calls without carrying parameters over", () => {
+    const db = new Database(":memory:");
+    db.migrate();
+    const servers = new ServerRepository(db);
+    servers.ensureServer("alpha", "alpha", "", "stdio", 1);
+    servers.ensureServer("beta", "beta", "", "stdio", 1);
+    const capabilities = new CapabilityRepository(db);
+    capabilities.insert(makeCapability("alpha.issues.list", "alpha"), 1);
+    capabilities.insert(makeCapability("beta.issues.list", "beta"), 1);
+
+    expect(capabilities.get("alpha.issues.list")?.serverId).toBe("alpha");
+    expect(capabilities.get("beta.issues.list")?.serverId).toBe("beta");
+    expect(capabilities.get("alpha.issues.list")?.serverId).toBe("alpha");
+    expect(capabilities.get("gamma.issues.list")).toBeUndefined();
+
+    db.close();
+  });
+
+  it("drops cached statements when exec changes the schema", () => {
+    const db = new Database(":memory:");
+    db.exec("CREATE TABLE probe (id TEXT PRIMARY KEY);");
+    db.run("INSERT INTO probe (id) VALUES (?)", "one");
+    expect(db.all("SELECT * FROM probe")).toHaveLength(1);
+
+    db.exec("DROP TABLE probe;");
+    db.exec("CREATE TABLE probe (id TEXT PRIMARY KEY, label TEXT);");
+    db.run("INSERT INTO probe (id, label) VALUES (?, ?)", "one", "first");
+
+    const rows = db.all("SELECT * FROM probe");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.label).toBe("first");
+    db.close();
+  });
+});
+
+describe("storage/routing stats scoping", () => {
+  it("reports the global usage maximum even when only some ids are requested", () => {
+    const db = new Database(":memory:");
+    db.migrate();
+    const servers = new ServerRepository(db);
+    servers.ensureServer("srv", "srv", "", "stdio", 1);
+    const capabilities = new CapabilityRepository(db);
+    capabilities.insert(makeCapability("srv.popular.get"), 1);
+    capabilities.insert(makeCapability("srv.rare.get"), 1);
+    capabilities.insert(makeCapability("srv.first.get"), 1);
+    const analytics = new AnalyticsRepository(db);
+    for (let i = 0; i < 9; i++) analytics.bumpRouting("srv.popular.get", { success: true }, 1);
+    analytics.bumpRouting("srv.rare.get", { success: true }, 1);
+
+    expect(analytics.getRoutingStats(["srv.rare.get"]).size).toBe(1);
+    expect(analytics.maxUsageCount()).toBe(9);
+
+    db.close();
+  });
+
+  it("fetches nothing for an empty id list instead of every row", () => {
+    const db = new Database(":memory:");
+    db.migrate();
+    const servers = new ServerRepository(db);
+    servers.ensureServer("srv", "srv", "", "stdio", 1);
+    const capabilities = new CapabilityRepository(db);
+    capabilities.insert(makeCapability("srv.popular.get"), 1);
+    capabilities.insert(makeCapability("srv.rare.get"), 1);
+    capabilities.insert(makeCapability("srv.first.get"), 1);
+    const analytics = new AnalyticsRepository(db);
+    analytics.bumpRouting("srv.first.get", { success: true }, 1);
+
+    expect(analytics.getRoutingStats([]).size).toBe(0);
+    expect(analytics.getRoutingStats().size).toBe(1);
+
+    db.close();
+  });
+});

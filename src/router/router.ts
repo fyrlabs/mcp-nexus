@@ -49,8 +49,10 @@ export class Router {
       limit: limit * 2,
       serverIds: context.serverIds,
     });
-    const statsByCapability = this.analytics.getRoutingStats();
-    const maxGlobalUsage = maxValue([...statsByCapability.values()].map((stat) => stat.usageCount));
+    const statsByCapability = this.analytics.getRoutingStats(
+      baseMatches.map((base) => base.capabilityId),
+    );
+    const maxGlobalUsage = this.analytics.maxUsageCount();
     const predictions = this.predictor.predictNext(this.session(sessionId).lastCapabilityId);
 
     const ranked: CapabilityMatch[] = [];
@@ -294,6 +296,3 @@ function serverPartOf(capabilityId: string): string {
   return capabilityId.split(".")[0] ?? capabilityId;
 }
 
-function maxValue(values: number[]): number {
-  return values.reduce((max, value) => (value > max ? value : max), 0);
-}

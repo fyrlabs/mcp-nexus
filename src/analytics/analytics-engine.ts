@@ -74,8 +74,12 @@ export class AnalyticsEngine {
     );
   }
 
-  getRoutingStats(): Map<string, RoutingStatsRecord> {
-    return this.repository.getRoutingStats();
+  getRoutingStats(capabilityIds?: string[]): Map<string, RoutingStatsRecord> {
+    return this.repository.getRoutingStats(capabilityIds);
+  }
+
+  maxUsageCount(): number {
+    return this.repository.maxUsageCount();
   }
 
   recordSequence(previousCapabilityId: string, nextCapabilityId: string): void {
