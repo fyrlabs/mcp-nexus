@@ -130,15 +130,17 @@ Behavior:
 - Capability texts (title, description, keywords) are embedded once at index time in batches
   and cached in SQLite (`capability_embeddings`), keyed by provider and model. Restarts
   hydrate from the cache; only new or changed tools are embedded again.
-- Query embeddings happen per search. If the endpoint is unreachable, a circuit breaker opens
-  after two consecutive failures (60s cooldown, one warning logged) and queries fall back to
-  exact + lexical search immediately — search never fails because of the semantic layer, and a
-  dead endpoint costs at most two slow requests per outage.
+- **Every search query is sent to the endpoint** to be embedded. Queries come from the agent
+  and reflect what you asked it to do, so with a cloud endpoint that text leaves your machine
+  on every search. Use `provider: "hash"` or a local Ollama endpoint if that matters. If the
+  endpoint is unreachable, a circuit breaker opens after two consecutive failures (60s
+  cooldown, one warning logged) and queries fall back to exact + lexical search immediately —
+  search never fails because of the semantic layer.
 - `dimensions` is optional for `openai`; set it to catch endpoint/model mismatches early.
 - `apiKey` supports `${VAR}` substitution like every other config string. With a local Ollama
   endpoint no key is needed.
-- Only capability text is ever sent to the endpoint — never tool arguments, secrets, or
-  analytics.
+- Capability text and search queries are the only things sent to the endpoint — never tool
+  arguments, tool results, secrets, or analytics.
 
 ## Tool promotion (Mode B)
 

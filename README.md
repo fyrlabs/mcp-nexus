@@ -92,13 +92,13 @@ execute_capability   { "capabilityId": "github.review_comments.list",
 | Capability metadata | Only on search (small records: id, title, description, risk, score) | Full index in SQLite |
 | Tool input schemas | Only for described capabilities | Persisted at index time |
 | Usage analytics | — | Local events + aggregates |
-| Secrets | Never (env refs resolve at spawn time, redacted from logs) | In your shell/env |
+| Secrets | Never (redacted from logs and CLI output) | Resolved in-process, passed to the downstream server env |
 
 ## Highlights
 
 - **Local-first.** No cloud service, no account, no telemetry. Delete `.mcp-nexus/` and all learned state is gone.
 - **Lazy execution lifecycle.** After the one-time background index, servers start only when a task needs them, stop after tiered idle timeouts (hot / warm / cold), and are never stopped mid-call. A server that keeps failing to start is quarantined for a short, growing window instead of costing a startup timeout on every call.
-- **Hybrid search.** BM25 lexical ranking over weighted fields, exact id/tool matching, alias expansion (`pr → pull request`, configurable), plus optional semantic search: point `routing.semantic` at any OpenAI-compatible embeddings endpoint (cloud, or fully-local via Ollama) — embeddings are batched, cached in SQLite, and the system falls back to lexical automatically when the endpoint is down (a circuit breaker caps the cost at two failed requests per outage).
+- **Hybrid search.** BM25 lexical ranking over weighted fields, exact id/tool matching, alias expansion (`pr → pull request`, configurable), plus optional semantic search: point `routing.semantic` at any OpenAI-compatible embeddings endpoint (cloud, or fully-local via Ollama) — embeddings are batched, cached in SQLite, and the system falls back to lexical automatically when the endpoint is down (a circuit breaker opens after two consecutive failures and suppresses calls for 60s before probing again). Search queries are sent to that endpoint too — see [Privacy](#privacy).
 - **Risk policies and optional tool promotion.** Deny or flag capabilities by risk class, and (opt-in, `routing.promotion: "session"`) expose discovered tools directly as `nexus__<server>__<tool>` after discovery (argument schemas are reconstructed from the downstream JSON schema; exotic keywords are simplified). Risk classes come from a keyword heuristic over each tool's own name and description, so treat policies as a workflow guardrail against accidents, not as a security boundary against a hostile server. See [risk classification](docs/configuration.md#risk-classification).
 - **Adaptive ranking with explanations.** Every result carries its signal breakdown; pinned capabilities outrank learned popularity; blocked capabilities are never suggested.
 - **Sequence prediction.** Repeated tool transitions are learned locally and used to boost likely-next capabilities — prediction never auto-executes.
@@ -136,7 +136,14 @@ See [AGENTS.md](AGENTS.md) for contribution conventions (commits, versioning, st
 
 ## Privacy
 
-Nexus stores configuration caches, indexes, and analytics in `.mcp-nexus/` (or your XDG data dir). Nothing is sent anywhere by the router itself. If you configure an external embedding provider, only capability text (titles/descriptions/keywords) would be sent there — never arguments, secrets, or analytics. Raw tool arguments are never persisted.
+Nexus stores configuration caches, indexes, and analytics in `.mcp-nexus/` (or your XDG data dir). Raw tool arguments are never persisted. With the default settings (`routing.semantic.provider: "null"`) the router makes no network requests at all.
+
+Semantic search is the one feature that sends data off the machine, and only if you turn it on. Pointing `routing.semantic` at an OpenAI-compatible endpoint sends two kinds of text there:
+
+- **Capability text** (titles, descriptions, keywords) at index time, once per tool.
+- **Your search query** on every search, to embed it for comparison. Queries are written by the agent from your conversation, so treat them as conversation content.
+
+Tool arguments, tool results, secrets, and analytics are never sent. If the query text matters to you, use `provider: "hash"` (fully local, no network) or point `baseUrl` at a local [Ollama](https://ollama.com) instance.
 
 ## License
 
