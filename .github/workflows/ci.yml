@@ -67,8 +67,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      # docs/mcp is generated from the live control plane. If a change adds, removes
-      # or reshapes a control-plane tool without regenerating, the published docs go
-      # stale silently. Regenerate with:
-      #   npx -y @fyrlabs/mcp-docs generate --command "npx -y @fyrlabs/mcp-nexus" --out docs/mcp
-      - run: npx -y @fyrlabs/mcp-docs check --command "node dist/cli/main.js" --manifest docs/mcp/mcp-manifest.json
+      # docs/mcp is generated from the live control plane, so it goes stale silently
+      # if a change adds, removes or reshapes a control-plane tool. This compares the
+      # tool surface only: `mcp-docs check` also compares server.version, which differs
+      # by design (the committed manifest documents the published package so its
+      # install snippet is the npx command, while this job runs the local build).
+      - run: node scripts/check-docs-drift.mjs docs/mcp/mcp-manifest.json
