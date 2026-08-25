@@ -7,6 +7,24 @@ minor releases.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-08-25
+
+Searching a large ecosystem is now roughly 15x faster, VS Code configs import, and the privacy docs say what actually leaves your machine.
+
+### Added
+
+- **`import` reads VS Code configs.** VS Code stores servers under a `servers` key instead of `mcpServers`, so importing one used to report "No mcpServers found" and do nothing. Both keys work now. Entries VS Code runs over http or sse are reported and skipped, instead of failing the whole import.
+
+### Changed
+
+- **Search got much faster on big setups.** At 10,000 capabilities a search made about 1,400 database queries; it now makes 16. Measured on a synthetic 100-server ecosystem: 14.3ms to 0.9ms at the median. Results are unchanged.
+
+### Fixed
+
+- **Changing an env value now reindexes the server.** Only env variable names counted towards the staleness check, so switching something like `GITHUB_TOOLSETS` left you with the old tool list until you ran `index --force`. Values count now. Rotating a secret still does not trigger a reindex, since nothing about the tools changed.
+- **Privacy docs now mention search queries.** If you point `routing.semantic` at an embedding endpoint, your search queries go there too, not just tool titles and descriptions. The docs only mentioned the latter. Nothing is sent at all with the default settings.
+- **Circuit breaker docs corrected.** A dead embedding endpoint costs one slow request per 60s cooldown for as long as the outage lasts, not two requests total as previously claimed.
+
 ## [0.9.0] - 2026-08-25
 
 Config edits are now reversible, and the README is honest about how much context you save on your particular harness.
