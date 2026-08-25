@@ -1,4 +1,5 @@
 import { contentHash } from "../utils/hash.js";
+import { redactEnv } from "../utils/redact.js";
 import type { ResolvedConfig, ResolvedServer } from "../config/loader.js";
 import type { CapabilityRepository } from "../storage/capability-repository.js";
 import type { ServerRepository } from "../storage/server-repository.js";
@@ -100,6 +101,6 @@ export function configHashOf(definition: MCPServerDefinition): string {
     args: definition.args,
     cwd: definition.cwd ?? null,
     tags: [...definition.tags].sort(),
-    envKeys: Object.keys(definition.env).sort(),
+    env: redactEnv(definition.env),
   });
 }

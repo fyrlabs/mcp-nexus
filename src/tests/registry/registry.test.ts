@@ -6,8 +6,8 @@ import { loadConfig } from "../../config/loader.js";
 import { Database } from "../../storage/database.js";
 import { CapabilityRepository } from "../../storage/capability-repository.js";
 import { ServerRepository } from "../../storage/server-repository.js";
-import { Registry } from "../../registry/registry.js";
-import type { Capability } from "../../models/types.js";
+import { Registry, configHashOf } from "../../registry/registry.js";
+import type { Capability, MCPServerDefinition } from "../../models/types.js";
 
 function capabilityFor(serverId: string): Capability {
   return {
@@ -90,5 +90,43 @@ describe("registry/registry", () => {
     expect(servers.get("stale")).toBeUndefined();
     expect(capabilities.countForServer("stale")).toBe(0);
     expect(servers.get("jira")).toBeDefined();
+  });
+});
+
+describe("registry/configHashOf", () => {
+  function definitionWith(env: Record<string, string>): MCPServerDefinition {
+    return {
+      id: "github",
+      name: "GitHub",
+      description: "",
+      command: "docker",
+      args: ["run", "ghcr.io/github/github-mcp-server"],
+      env,
+      tags: [],
+      enabled: true,
+      alwaysOn: false,
+      source: "project",
+    };
+  }
+
+  it("changes when a non-secret env value changes, so the tool surface gets reindexed", () => {
+    const before = configHashOf(definitionWith({ GITHUB_TOOLSETS: "repos,issues" }));
+    const after = configHashOf(definitionWith({ GITHUB_TOOLSETS: "repos,issues,pull_requests" }));
+
+    expect(after).not.toBe(before);
+  });
+
+  it("stays stable when only a secret-looking env value changes", () => {
+    const before = configHashOf(definitionWith({ GITHUB_TOKEN: "ghp_old", GITHUB_TOOLSETS: "repos" }));
+    const after = configHashOf(definitionWith({ GITHUB_TOKEN: "ghp_new", GITHUB_TOOLSETS: "repos" }));
+
+    expect(after).toBe(before);
+  });
+
+  it("still changes when an env key is added or removed", () => {
+    const before = configHashOf(definitionWith({ GITHUB_TOOLSETS: "repos" }));
+    const after = configHashOf(definitionWith({ GITHUB_TOOLSETS: "repos", GITHUB_HOST: "ghe.example.com" }));
+
+    expect(after).not.toBe(before);
   });
 });

@@ -40,10 +40,11 @@ src/cli/commands/serve.ts ──► src/mcp/nexus-server.ts (control plane: 4 to
 
 1. On boot, persisted capabilities are **hydrated** into in-memory BM25/semantic indexes — no server is started.
 2. Background indexing (`startIndexing`) starts only servers whose config hash differs from the hash recorded at their last successful index (inserts start with an empty hash, so first boot indexes once).
-3. The config hash is recorded **after** a successful index run (`servers.set_config_hash`), so restarts detect stale definitions reliably. Servers exposing zero tools are indexed once and left alone afterwards.
-4. When a reindex finds tools missing from `listTools`, they are soft-deleted (`availability = 'unavailable'`) instead of removed — learned analytics survive downstream flaps, and unavailable capabilities are excluded from search.
-5. Search always works from the persisted index even while every downstream server is stopped.
-6. Server ids containing dots resolve via longest-prefix matching against configured ids (`configuredServerIdFor`), never by splitting on the first dot.
+3. The config hash covers the command, args, cwd, tags, and env of a server definition. Env values are part of it, so changing something like `GITHUB_TOOLSETS` triggers a reindex; values under secret-looking keys (`token`, `secret`, `password`, `api_key`, `authorization`, `credential`) are redacted before hashing, so rotating a token does not force a pointless reindex and no digest of a secret is stored.
+4. The config hash is recorded **after** a successful index run (`servers.set_config_hash`), so restarts detect stale definitions reliably. Servers exposing zero tools are indexed once and left alone afterwards.
+5. When a reindex finds tools missing from `listTools`, they are soft-deleted (`availability = 'unavailable'`) instead of removed — learned analytics survive downstream flaps, and unavailable capabilities are excluded from search.
+6. Search always works from the persisted index even while every downstream server is stopped.
+7. Server ids containing dots resolve via longest-prefix matching against configured ids (`configuredServerIdFor`), never by splitting on the first dot.
 
 ## Execution safety
 
