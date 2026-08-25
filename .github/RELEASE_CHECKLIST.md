@@ -71,6 +71,20 @@ npx -y @fyrlabs/mcp-nexus@X.Y.Z --version
 - [ ] Provenance shows on https://www.npmjs.com/package/@fyrlabs/mcp-nexus
 - [ ] `npm view @fyrlabs/mcp-nexus dist-tags` — `latest` points at the intended version.
 
+## 6b. Regenerate the control plane docs (after publish, not before)
+
+`docs/mcp/` is generated from the **published** package so its install snippet stays the `npx` command users actually run. That means it can only be refreshed once the new version is on the registry.
+
+```bash
+cd "$(mktemp -d)"
+npx -y @fyrlabs/mcp-docs generate --command "npx -y @fyrlabs/mcp-nexus" --out <repo>/docs/mcp
+```
+
+- [ ] Commit the regenerated `docs/mcp/` and push.
+- [ ] Confirm nothing machine-local leaked into the manifest: `grep -riE "/Users/|/home/|/private/tmp" docs/mcp/` returns nothing. Generating from a local path instead of `npx` puts absolute paths in `connection` and in the install snippet.
+
+CI does not gate on the version here. `scripts/check-docs-drift.mjs` compares the tool surface only (names, descriptions, input schemas, resources, prompts, instructions), because the committed manifest documents the published package while CI runs the local build.
+
 ## 7. Clean up
 
 - [ ] Tags and releases line up. Every released version keeps its tag and its release page; that history is the point. Delete a tag only when it never had a release, or when its artifact is broken and withdrawn.
